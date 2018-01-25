@@ -1,5 +1,12 @@
 html,
-body { height: 100%;}
+body { 
+    height: 100%;
+    overflow-x: hidden;
+}
+
+img { 
+    max-width: 100%;
+}
 
 #cover {
     background: #222 url('./../images/stars.jpg') center center no-repeat;
