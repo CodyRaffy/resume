@@ -21,3 +21,7 @@ img {
 #cover-caption {
     width: 100%;
 }
+
+.experience-image {
+    max-width: 286px;
+}
