@@ -25,3 +25,18 @@ img {
 .experience-image {
     max-width: 286px;
 }
+
+ul.nav li.dropdown:hover ul.dropdown-menu {
+    display: block;
+}
+
+.skills-image {
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+.vertical-center {
+    display: flex;
+    justify-content: center; /* align horizontal */
+    align-items: center; /* align vertical */
+}
