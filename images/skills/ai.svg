@@ -1,0 +1,12 @@
+<svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <rect width="120" height="120" fill="#FF6B6B"/>
+  <circle cx="60" cy="45" r="8" fill="white"/>
+  <circle cx="45" cy="60" r="6" fill="white"/>
+  <circle cx="75" cy="60" r="6" fill="white"/>
+  <circle cx="60" cy="75" r="8" fill="white"/>
+  <line x1="60" y1="45" x2="45" y2="60" stroke="white" stroke-width="2"/>
+  <line x1="60" y1="45" x2="75" y2="60" stroke="white" stroke-width="2"/>
+  <line x1="45" y1="60" x2="60" y2="75" stroke="white" stroke-width="2"/>
+  <line x1="75" y1="60" x2="60" y2="75" stroke="white" stroke-width="2"/>
+  <text x="60" y="100" font-family="Arial, sans-serif" font-size="20" fill="white" text-anchor="middle">AI/ML</text>
+</svg>
