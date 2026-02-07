@@ -12,8 +12,13 @@ import { InputManager } from '../managers/InputManager';
 import { Obstacle } from '../objects/Obstacle';
 import { Collectible } from '../objects/Collectible';
 
+// Depth zone where collisions are checked (obstacle near the player)
+const COLLISION_Z_MIN = 0.82;
+const COLLISION_Z_MAX = 1.05;
+
 export class GameScene extends Phaser.Scene {
   player!: Player;
+  playerShadow!: Phaser.GameObjects.Image;
   spawnManager!: SpawnManager;
   scoreManager!: ScoreManager;
   levelManager!: LevelManager;
@@ -34,8 +39,8 @@ export class GameScene extends Phaser.Scene {
   levelText!: Phaser.GameObjects.Text;
 
   // Ground scrolling
-  groundLines: Phaser.GameObjects.Graphics[] = [];
-  groundLinePositions: number[] = [];
+  private groundLines: Phaser.GameObjects.Graphics[] = [];
+  private groundLinePositions: number[] = [];
 
   // Level transition
   levelAnnouncement!: Phaser.GameObjects.Text;
@@ -45,18 +50,25 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Reset all state for replays
     this.isGameOver = false;
     this.isPaused = false;
     this.isInvincible = false;
     this.lives = STARTING_LIVES;
+    this.groundLines = [];
+    this.groundLinePositions = [];
 
     // Draw background and ground
     this.drawBackground();
     this.drawGround();
 
-    // Create groups for obstacles and collectibles
+    // Create groups
     this.obstacles = this.add.group();
     this.collectibles = this.add.group();
+
+    // Player shadow (drawn under the player)
+    this.playerShadow = this.add.image(LANE_POSITIONS[DEFAULT_LANE], PLAYER_Y + 44, 'player-shadow');
+    this.playerShadow.setDepth(49);
 
     // Create player
     this.player = new Player(this, LANE_POSITIONS[DEFAULT_LANE], PLAYER_Y);
@@ -67,10 +79,10 @@ export class GameScene extends Phaser.Scene {
     this.spawnManager = new SpawnManager(this);
     this.inputManager = new InputManager(this);
 
-    // Create HUD
+    // HUD
     this.createHUD();
 
-    // Level announcement text (hidden by default)
+    // Level announcement (hidden)
     this.levelAnnouncement = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT * 0.4, '', {
       fontFamily: 'Arial Black, Arial',
       fontSize: '32px',
@@ -84,15 +96,15 @@ export class GameScene extends Phaser.Scene {
     this.levelAnnouncement.setDepth(100);
 
     // Pause button
-    const pauseBtn = this.add.text(GAME_WIDTH - 15, 15, '||', {
+    const pauseBtn = this.add.text(GAME_WIDTH - 15, 15, '| |', {
       fontFamily: 'Arial Black',
-      fontSize: '24px',
+      fontSize: '20px',
       color: '#FFFFFF',
       stroke: '#000000',
       strokeThickness: 4,
     });
     pauseBtn.setOrigin(1, 0);
-    pauseBtn.setInteractive();
+    pauseBtn.setInteractive({ useHandCursor: true });
     pauseBtn.setDepth(100);
     pauseBtn.on('pointerdown', () => this.togglePause());
   }
@@ -103,93 +115,118 @@ export class GameScene extends Phaser.Scene {
     const currentLevel = this.levelManager.getCurrentLevel();
     const speed = this.levelManager.getCurrentSpeed();
 
-    // Update ground scrolling
+    // Scrolling ground lines
     this.updateGround(speed, delta);
 
-    // Update score (distance)
+    // Distance score
     this.scoreManager.addDistance(DISTANCE_POINTS_PER_TICK);
 
-    // Check for level progression
+    // Level check
     this.levelManager.checkLevelUp(this.scoreManager.getScore());
 
-    // Spawn obstacles and collectibles
+    // Spawn
     this.spawnManager.update(delta, currentLevel, speed);
 
-    // Update obstacles
-    this.obstacles.getChildren().forEach((obj) => {
-      const obstacle = obj as Obstacle;
+    // Update player shadow position
+    this.playerShadow.x = this.player.x;
+    this.playerShadow.y = PLAYER_Y + 44;
+    this.playerShadow.setAlpha(this.player.playerState === 'jumping' ? 0.15 : 0.3);
+
+    // --- Update obstacles (collect into array first to avoid mutation during iteration) ---
+    const obstaclesToDestroy: Obstacle[] = [];
+    const obstacleChildren = this.obstacles.getChildren().slice() as Obstacle[];
+
+    for (const obstacle of obstacleChildren) {
       obstacle.updatePosition(speed, delta);
 
-      // Check collision with player
-      if (!this.isInvincible && this.checkPlayerObstacleCollision(this.player, obstacle)) {
+      // Only check collision when obstacle is near the player
+      if (!this.isInvincible
+        && obstacle.depth_z >= COLLISION_Z_MIN
+        && obstacle.depth_z <= COLLISION_Z_MAX
+        && this.checkPlayerVsObstacle(obstacle)
+      ) {
         this.onObstacleHit(obstacle);
+        continue; // obstacle destroyed in onObstacleHit
       }
 
-      // Remove if off screen
-      if (obstacle.y > GAME_HEIGHT + 50) {
-        obstacle.destroy();
+      // Remove if past the camera
+      if (obstacle.depth_z > 1.15) {
+        obstaclesToDestroy.push(obstacle);
       }
-    });
+    }
+    obstaclesToDestroy.forEach(o => o.destroy());
 
-    // Update collectibles
-    this.collectibles.getChildren().forEach((obj) => {
-      const collectible = obj as Collectible;
+    // --- Update collectibles ---
+    const collectiblesToDestroy: Collectible[] = [];
+    const collectChildren = this.collectibles.getChildren().slice() as Collectible[];
+
+    for (const collectible of collectChildren) {
       collectible.updatePosition(speed, delta);
 
-      // Check collection
-      if (this.checkPlayerCollectibleCollision(this.player, collectible)) {
+      if (collectible.depth_z >= COLLISION_Z_MIN
+        && collectible.depth_z <= COLLISION_Z_MAX
+        && this.checkPlayerVsCollectible(collectible)
+      ) {
         this.onCollectiblePickup(collectible);
+        continue;
       }
 
-      // Remove if off screen
-      if (collectible.y > GAME_HEIGHT + 50) {
-        collectible.destroy();
+      if (collectible.depth_z > 1.15) {
+        collectiblesToDestroy.push(collectible);
       }
-    });
+    }
+    collectiblesToDestroy.forEach(c => c.destroy());
 
-    // Update HUD
+    // HUD
     this.updateHUD();
   }
+
+  // --- Drawing ---
 
   private drawBackground(): void {
     const bg = this.add.graphics();
     bg.fillStyle(COLORS.sky, 1);
     bg.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-    // Simple city skyline silhouette
+    // City skyline silhouette
     bg.fillStyle(0x2C3E50, 1);
     const buildings = [
-      { x: 20, w: 40, h: 80 },
-      { x: 70, w: 30, h: 60 },
-      { x: 110, w: 50, h: 100 },
-      { x: 170, w: 35, h: 70 },
-      { x: 220, w: 45, h: 90 },
-      { x: 280, w: 30, h: 55 },
-      { x: 320, w: 55, h: 110 },
-      { x: 385, w: 40, h: 75 },
-      { x: 430, w: 35, h: 65 },
+      { x: 10, w: 45, h: 85 }, { x: 65, w: 35, h: 55 },
+      { x: 108, w: 52, h: 105 }, { x: 168, w: 38, h: 72 },
+      { x: 215, w: 48, h: 92 }, { x: 275, w: 32, h: 58 },
+      { x: 315, w: 58, h: 115 }, { x: 382, w: 42, h: 78 },
+      { x: 430, w: 40, h: 68 },
     ];
-
     buildings.forEach(b => {
       bg.fillRect(b.x, HORIZON_Y - b.h, b.w, b.h);
+      // Window dots
+      bg.fillStyle(0x4A6B8A, 0.5);
+      for (let wy = HORIZON_Y - b.h + 8; wy < HORIZON_Y - 8; wy += 14) {
+        for (let wx = b.x + 6; wx < b.x + b.w - 6; wx += 10) {
+          bg.fillRect(wx, wy, 4, 6);
+        }
+      }
+      bg.fillStyle(0x2C3E50, 1);
     });
+
+    // Horizon glow
+    bg.fillStyle(0xBBDDEE, 0.3);
+    bg.fillRect(0, HORIZON_Y - 2, GAME_WIDTH, 4);
   }
 
   private drawGround(): void {
-    // Main ground
     const ground = this.add.graphics();
     ground.fillStyle(COLORS.ground, 1);
     ground.fillRect(0, HORIZON_Y, GAME_WIDTH, GAME_HEIGHT - HORIZON_Y);
 
     // Perspective road
     const road = this.add.graphics();
-    road.fillStyle(0x444444, 1);
+    road.fillStyle(0x3a3a3a, 1);
 
-    // Road widens from horizon to bottom
     const topLeft = GAME_WIDTH * 0.35;
     const topRight = GAME_WIDTH * 0.65;
-    const botLeft = GAME_WIDTH * 0.05;
-    const botRight = GAME_WIDTH * 0.95;
+    const botLeft = GAME_WIDTH * 0.02;
+    const botRight = GAME_WIDTH * 0.98;
 
     road.beginPath();
     road.moveTo(topLeft, HORIZON_Y);
@@ -199,115 +236,145 @@ export class GameScene extends Phaser.Scene {
     road.closePath();
     road.fillPath();
 
-    // Lane dividers (static base)
-    road.lineStyle(2, 0xFFFFFF, 0.3);
-    // Left divider
+    // Sidewalk edges
+    road.lineStyle(3, 0x666666, 0.5);
+    road.lineBetween(topLeft, HORIZON_Y, botLeft, GAME_HEIGHT);
+    road.lineBetween(topRight, HORIZON_Y, botRight, GAME_HEIGHT);
+
+    // Lane dividers (static dashed lines)
+    road.lineStyle(2, 0xFFFFFF, 0.25);
     const lDiv1TopX = Phaser.Math.Linear(topLeft, topRight, 0.33);
     const lDiv1BotX = Phaser.Math.Linear(botLeft, botRight, 0.33);
     road.lineBetween(lDiv1TopX, HORIZON_Y, lDiv1BotX, GAME_HEIGHT);
-    // Right divider
     const lDiv2TopX = Phaser.Math.Linear(topLeft, topRight, 0.67);
     const lDiv2BotX = Phaser.Math.Linear(botLeft, botRight, 0.67);
     road.lineBetween(lDiv2TopX, HORIZON_Y, lDiv2BotX, GAME_HEIGHT);
 
-    // Create animated ground lines for scrolling effect
-    for (let i = 0; i < 8; i++) {
+    // Animated ground lines for scrolling effect
+    for (let i = 0; i < 10; i++) {
       const lineGfx = this.add.graphics();
+      lineGfx.setDepth(5);
       this.groundLines.push(lineGfx);
-      this.groundLinePositions.push(i / 8);
+      this.groundLinePositions.push(i / 10);
     }
   }
 
   private updateGround(speed: number, delta: number): void {
     const topLeft = GAME_WIDTH * 0.35;
     const topRight = GAME_WIDTH * 0.65;
-    const botLeft = GAME_WIDTH * 0.05;
-    const botRight = GAME_WIDTH * 0.95;
+    const botLeft = GAME_WIDTH * 0.02;
+    const botRight = GAME_WIDTH * 0.98;
 
     for (let i = 0; i < this.groundLines.length; i++) {
-      this.groundLinePositions[i] += speed * delta * 0.0005;
+      this.groundLinePositions[i] += speed * delta * 0.0004;
       if (this.groundLinePositions[i] > 1) {
         this.groundLinePositions[i] -= 1;
       }
 
       const t = this.groundLinePositions[i];
-      // Perspective: lines get wider and more spaced as they approach camera
-      const perspT = t * t; // quadratic for perspective effect
+      const perspT = t * t;
       const y = Phaser.Math.Linear(HORIZON_Y, GAME_HEIGHT, perspT);
       const leftX = Phaser.Math.Linear(topLeft, botLeft, perspT);
       const rightX = Phaser.Math.Linear(topRight, botRight, perspT);
 
       const gfx = this.groundLines[i];
       gfx.clear();
-      gfx.lineStyle(1 + perspT * 2, 0xFFFFFF, 0.15 + perspT * 0.15);
-      gfx.lineBetween(leftX, y, rightX, y);
+      const alpha = 0.08 + perspT * 0.2;
+      const width = 1 + perspT * 2.5;
+      gfx.lineStyle(width, 0xFFFFFF, alpha);
+      gfx.lineBetween(leftX + 5, y, rightX - 5, y);
     }
   }
 
+  // --- HUD ---
+
   private createHUD(): void {
     const hudBg = this.add.graphics();
-    hudBg.fillStyle(COLORS.hud_bg, 0.5);
-    hudBg.fillRect(0, 0, GAME_WIDTH, 45);
+    hudBg.fillStyle(COLORS.hud_bg, 0.6);
+    hudBg.fillRect(0, 0, GAME_WIDTH, 48);
     hudBg.setDepth(90);
 
-    this.scoreText = this.add.text(15, 12, 'Score: 0', {
-      fontFamily: 'Arial',
+    this.scoreText = this.add.text(15, 8, 'Score: 0', {
+      fontFamily: 'Arial Black, Arial',
       fontSize: '16px',
       color: '#FFFFFF',
-    });
-    this.scoreText.setDepth(100);
+    }).setDepth(100);
 
-    this.livesText = this.add.text(GAME_WIDTH / 2, 12, '♥♥♥', {
+    this.livesText = this.add.text(GAME_WIDTH / 2, 8, '\u2764\u2764\u2764', {
       fontFamily: 'Arial',
-      fontSize: '18px',
+      fontSize: '20px',
       color: '#FF4444',
-    });
-    this.livesText.setOrigin(0.5, 0);
-    this.livesText.setDepth(100);
+    }).setOrigin(0.5, 0).setDepth(100);
 
     this.comboText = this.add.text(15, 30, '', {
       fontFamily: 'Arial',
       fontSize: '12px',
       color: '#FFD700',
-    });
-    this.comboText.setDepth(100);
+    }).setDepth(100);
 
-    this.levelText = this.add.text(GAME_WIDTH - 60, 12, 'Level 1', {
+    this.levelText = this.add.text(GAME_WIDTH - 15, 8, 'Level 1', {
       fontFamily: 'Arial',
       fontSize: '14px',
       color: '#88DDFF',
-    });
-    this.levelText.setDepth(100);
+    }).setOrigin(1, 0).setDepth(100);
   }
 
   private updateHUD(): void {
     this.scoreText.setText(`Score: ${this.scoreManager.getScore()}`);
 
-    const hearts = '♥'.repeat(this.lives) + '♡'.repeat(STARTING_LIVES - this.lives);
+    let hearts = '';
+    for (let i = 0; i < STARTING_LIVES; i++) {
+      hearts += i < this.lives ? '\u2764' : '\u2661';
+    }
     this.livesText.setText(hearts);
 
     const combo = this.scoreManager.getCombo();
     const multiplier = this.scoreManager.getMultiplier();
-    if (combo > 0) {
-      this.comboText.setText(`Combo: ${combo} (${multiplier}x)`);
-    } else {
-      this.comboText.setText('');
-    }
+    this.comboText.setText(combo > 1 ? `Combo: ${combo} (${multiplier}x)` : '');
 
     this.levelText.setText(`Level ${this.levelManager.getCurrentLevel().id}`);
   }
 
-  checkPlayerObstacleCollision(player: Player, obstacle: Obstacle): boolean {
-    const playerBounds = player.getCollisionBounds();
-    const obstacleBounds = obstacle.getCollisionBounds();
+  // --- Collision ---
+
+  private checkPlayerVsObstacle(obstacle: Obstacle): boolean {
+    const playerBounds = this.player.getCollisionBounds();
+
+    // For double blockers, check both sprites
+    if (obstacle.secondSpriteBounds) {
+      const mainBounds = obstacle.getMainBounds();
+      const secondBounds = obstacle.secondSpriteBounds;
+      return Phaser.Geom.Rectangle.Overlaps(playerBounds, mainBounds)
+        || Phaser.Geom.Rectangle.Overlaps(playerBounds, secondBounds);
+    }
+
+    const obstacleBounds = obstacle.getMainBounds();
+
+    // For tall obstacles, only collide if player is NOT sliding
+    if (obstacle.obstacleType === 'tall' && this.player.playerState === 'sliding') {
+      return false;
+    }
+
+    // For ground obstacles, no collision if player is jumping
+    if (obstacle.obstacleType === 'ground' && this.player.playerState === 'jumping') {
+      return false;
+    }
+
+    // For flying obstacles, no collision if player is sliding
+    if (obstacle.obstacleType === 'flying' && this.player.playerState === 'sliding') {
+      return false;
+    }
+
     return Phaser.Geom.Rectangle.Overlaps(playerBounds, obstacleBounds);
   }
 
-  checkPlayerCollectibleCollision(player: Player, collectible: Collectible): boolean {
-    const playerBounds = player.getCollisionBounds();
-    const collectibleBounds = collectible.getBounds();
-    return Phaser.Geom.Rectangle.Overlaps(playerBounds, collectibleBounds);
+  private checkPlayerVsCollectible(collectible: Collectible): boolean {
+    const playerBounds = this.player.getCollisionBounds();
+    const collectBounds = collectible.getBounds();
+    return Phaser.Geom.Rectangle.Overlaps(playerBounds, collectBounds);
   }
+
+  // --- Hit / Pickup ---
 
   onObstacleHit(obstacle: Obstacle): void {
     this.lives--;
@@ -315,12 +382,24 @@ export class GameScene extends Phaser.Scene {
     obstacle.destroy();
 
     // Screen shake
-    this.cameras.main.shake(200, 0.01);
+    this.cameras.main.shake(300, 0.015);
 
-    // Flash player red
+    // Flash player
     this.player.flash();
 
-    // Brief invincibility
+    // Red flash overlay
+    const flash = this.add.graphics();
+    flash.fillStyle(0xFF0000, 0.2);
+    flash.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    flash.setDepth(80);
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: 300,
+      onComplete: () => flash.destroy(),
+    });
+
+    // Invincibility
     this.isInvincible = true;
     this.time.delayedCall(2000, () => {
       this.isInvincible = false;
@@ -332,30 +411,50 @@ export class GameScene extends Phaser.Scene {
   }
 
   onCollectiblePickup(collectible: Collectible): void {
-    const points = collectible.getPoints();
-    this.scoreManager.addCollectible(points);
+    const basePoints = collectible.getPoints();
+    this.scoreManager.addCollectible(basePoints);
+    const earned = basePoints * this.scoreManager.getMultiplier();
 
-    // Visual feedback - floating text
-    const floatText = this.add.text(collectible.x, collectible.y, `+${points * this.scoreManager.getMultiplier()}`, {
+    // Floating score text
+    const floatText = this.add.text(collectible.x, collectible.y, `+${earned}`, {
       fontFamily: 'Arial Black',
-      fontSize: '18px',
+      fontSize: '20px',
       color: '#FFD700',
       stroke: '#000000',
-      strokeThickness: 3,
-    });
-    floatText.setOrigin(0.5, 0.5);
-    floatText.setDepth(90);
+      strokeThickness: 4,
+    }).setOrigin(0.5, 0.5).setDepth(90);
 
     this.tweens.add({
       targets: floatText,
-      y: floatText.y - 60,
+      y: floatText.y - 70,
       alpha: 0,
-      duration: 800,
+      scaleX: 1.3,
+      scaleY: 1.3,
+      duration: 900,
+      ease: 'Sine.easeOut',
       onComplete: () => floatText.destroy(),
     });
 
+    // Particle burst
+    const particles = this.add.particles(collectible.x, collectible.y, 'particle', {
+      speed: { min: 50, max: 150 },
+      scale: { start: 1, end: 0 },
+      lifespan: 400,
+      quantity: 8,
+      tint: collectible.collectibleType === 'gold' ? 0xFFD700
+        : collectible.collectibleType === 'silver' ? 0xC0C0C0
+        : collectible.collectibleType === 'special' ? 0x00FF88
+        : 0xCD7F32,
+      emitting: false,
+    });
+    particles.setDepth(85);
+    particles.explode();
+    this.time.delayedCall(500, () => particles.destroy());
+
     collectible.destroy();
   }
+
+  // --- Level Announcement ---
 
   showLevelAnnouncement(levelName: string): void {
     this.levelAnnouncement.setText(`${levelName}!`);
@@ -372,12 +471,14 @@ export class GameScene extends Phaser.Scene {
         this.tweens.add({
           targets: this.levelAnnouncement,
           alpha: 0,
-          delay: 1500,
+          delay: 1200,
           duration: 500,
         });
       },
     });
   }
+
+  // --- Pause ---
 
   togglePause(): void {
     this.isPaused = !this.isPaused;
@@ -388,23 +489,20 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  // --- Game Over ---
+
   private gameOver(): void {
     this.isGameOver = true;
     this.scoreManager.saveHighScore();
 
-    // Slow-mo effect
-    this.tweens.addCounter({
-      from: 1,
-      to: 0,
-      duration: 500,
-      onComplete: () => {
-        this.scene.start('GameOverScene', {
-          score: this.scoreManager.getScore(),
-          highScore: ScoreManager.getHighScore(),
-          level: this.levelManager.getCurrentLevel().id,
-          robotsCollected: this.scoreManager.getCollected(),
-        });
-      },
+    // Brief delay then transition
+    this.time.delayedCall(600, () => {
+      this.scene.start('GameOverScene', {
+        score: this.scoreManager.getScore(),
+        highScore: ScoreManager.getHighScore(),
+        level: this.levelManager.getCurrentLevel().id,
+        robotsCollected: this.scoreManager.getCollected(),
+      });
     });
   }
 }

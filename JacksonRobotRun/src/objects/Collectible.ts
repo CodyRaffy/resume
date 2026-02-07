@@ -16,7 +16,7 @@ const COLLECTIBLE_TEXTURES: Record<CollectibleType, string> = {
 export class Collectible extends Phaser.GameObjects.Sprite {
   collectibleType: CollectibleType;
   lane: number;
-  depth_z: number;
+  depth_z: number = 0;
   private bobOffset: number = 0;
 
   constructor(scene: Phaser.Scene, type: CollectibleType, lane: number) {
@@ -25,20 +25,20 @@ export class Collectible extends Phaser.GameObjects.Sprite {
 
     this.collectibleType = type;
     this.lane = lane;
-    this.depth_z = 0;
 
     scene.add.existing(this);
     this.setDepth(30);
     this.setScale(MIN_SCALE);
+    this.setAlpha(0);
   }
 
   updatePosition(speed: number, delta: number): void {
-    this.depth_z += speed * delta * 0.001;
+    this.depth_z += speed * delta * 0.0008;
     this.bobOffset += delta * 0.005;
 
     if (this.depth_z > 1.2) return;
 
-    const perspT = this.depth_z * this.depth_z;
+    const perspT = Math.min(this.depth_z * this.depth_z, 1);
     const scale = Phaser.Math.Linear(MIN_SCALE, MAX_SCALE, perspT);
     const y = Phaser.Math.Linear(HORIZON_Y, GROUND_Y, perspT);
 
@@ -47,11 +47,14 @@ export class Collectible extends Phaser.GameObjects.Sprite {
     const x = VANISHING_POINT_X + laneOffset;
 
     // Floating bob effect
-    const bob = Math.sin(this.bobOffset) * 5 * scale;
+    const bob = Math.sin(this.bobOffset) * 6 * scale;
 
-    this.setPosition(x, y - 20 * scale + bob);
-    this.setScale(scale);
+    this.setPosition(x, y - 25 * scale + bob);
+    this.setScale(scale * 1.1);
     this.setDepth(30 + perspT * 10);
+
+    // Fade in
+    this.setAlpha(Math.min(1, this.depth_z * 3));
 
     // Gentle rotation
     this.rotation += delta * 0.002;
