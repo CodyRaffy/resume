@@ -1,0 +1,21 @@
+{
+  "name": "jackson-robot-run",
+  "version": "1.0.0",
+  "description": "Jackson Robot Run - An endless runner game built with Phaser 3",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "keywords": ["game", "phaser", "endless-runner"],
+  "author": "Cody Raffensperger",
+  "license": "ISC",
+  "dependencies": {
+    "phaser": "^3.90.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  }
+}
