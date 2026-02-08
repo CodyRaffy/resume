@@ -1,16 +1,18 @@
 import Phaser from 'phaser';
-import { SWIPE_THRESHOLD, GAME_WIDTH, GAME_HEIGHT } from '../config/GameConfig';
+import { GAME_WIDTH, GAME_HEIGHT } from '../config/GameConfig';
 
-// Allow slower swipes to register
-const SWIPE_MAX_TIME = 700;
-// Taps longer than this are discarded entirely
-const TAP_MAX_TIME = 1000;
+// Vertical swipe threshold is lower so jump/slide trigger easily
+const SWIPE_V_THRESHOLD = 15;
+const SWIPE_H_THRESHOLD = 30;
+// Max time for a tap (not a swipe)
+const TAP_MAX_TIME = 300;
 
 export class InputManager {
   private scene: Phaser.Scene;
   private swipeStartX: number = 0;
   private swipeStartY: number = 0;
   private swipeStartTime: number = 0;
+  private gestureHandled: boolean = false;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -49,57 +51,59 @@ export class InputManager {
       this.swipeStartX = pointer.x;
       this.swipeStartY = pointer.y;
       this.swipeStartTime = pointer.time;
+      this.gestureHandled = false;
     });
 
-    this.scene.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      if (!this.isActive()) return;
+    // Detect swipes MID-GESTURE so they fire instantly (no waiting for lift)
+    this.scene.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (!this.isActive() || this.gestureHandled || !pointer.isDown) return;
 
-      // Ignore taps in the top 60px (HUD area / pause button zone)
-      if (pointer.y < 60 || this.swipeStartY < 60) return;
+      // Ignore HUD area
+      if (this.swipeStartY < 60) return;
 
       const deltaX = pointer.x - this.swipeStartX;
       const deltaY = pointer.y - this.swipeStartY;
-      const deltaTime = pointer.time - this.swipeStartTime;
-
-      // Discard very long holds
-      if (deltaTime > TAP_MAX_TIME) return;
-
       const absX = Math.abs(deltaX);
       const absY = Math.abs(deltaY);
 
-      if (deltaTime <= SWIPE_MAX_TIME && (absX > SWIPE_THRESHOLD || absY > SWIPE_THRESHOLD)) {
-        // It's a swipe — bias toward vertical to make jump/slide more reliable.
-        // Vertical wins if absY >= absX * 0.6 (diagonal-ish swipes count as vertical)
-        if (absY >= absX * 0.6) {
-          if (deltaY < 0) {
-            this.getPlayer()?.jump();
-          } else {
-            this.getPlayer()?.slide();
-          }
-        } else {
-          if (deltaX > 0) {
-            this.getPlayer()?.moveRight();
-          } else {
-            this.getPlayer()?.moveLeft();
-          }
-        }
-      } else {
-        // It's a tap — use screen zones:
-        // Top third = jump, bottom third = slide, middle = left/right lane change
-        const screenThird = GAME_HEIGHT / 3;
-        if (this.swipeStartY < screenThird + 60) {
-          // Top area (below HUD) = jump
+      // Check vertical swipe first (jump/slide — most important)
+      if (absY > SWIPE_V_THRESHOLD && absY > absX * 0.5) {
+        this.gestureHandled = true;
+        if (deltaY < 0) {
           this.getPlayer()?.jump();
-        } else if (this.swipeStartY > screenThird * 2) {
-          // Bottom area = slide
+        } else {
+          this.getPlayer()?.slide();
+        }
+        return;
+      }
+
+      // Horizontal swipe (lane change)
+      if (absX > SWIPE_H_THRESHOLD && absX > absY) {
+        this.gestureHandled = true;
+        if (deltaX > 0) {
+          this.getPlayer()?.moveRight();
+        } else {
+          this.getPlayer()?.moveLeft();
+        }
+      }
+    });
+
+    // Handle taps (quick touch with no swipe)
+    this.scene.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      if (!this.isActive() || this.gestureHandled) return;
+
+      // Ignore HUD area
+      if (pointer.y < 60 || this.swipeStartY < 60) return;
+
+      const deltaTime = pointer.time - this.swipeStartTime;
+
+      // Quick tap = jump (most common action in an endless runner)
+      if (deltaTime <= TAP_MAX_TIME) {
+        // Bottom quarter of screen = slide, everything else = jump
+        if (this.swipeStartY > GAME_HEIGHT * 0.75) {
           this.getPlayer()?.slide();
         } else {
-          // Middle area = left/right
-          if (pointer.x < GAME_WIDTH / 2) {
-            this.getPlayer()?.moveLeft();
-          } else {
-            this.getPlayer()?.moveRight();
-          }
+          this.getPlayer()?.jump();
         }
       }
     });

@@ -204,14 +204,53 @@ export class BootScene extends Phaser.Scene {
       g.lineBetween(w * 0.5, h * 0.95, w * 0.5, h);
       g.lineBetween(w * 0.7, h * 0.95, w * 0.8, h);
     } else if (pose === 'slide') {
+      // Sideways baseball slide — body tilted, legs kicked out
+
+      // Clear and redraw everything for the slide pose
+      g.clear();
+
+      // Legs extended to the right (kicked out)
       g.fillStyle((color * 0.8) | 0, 1);
-      g.fillRoundedRect(w * 0.05, h * 0.6, w * 0.4, h * 0.35, 4);
-      g.fillRoundedRect(w * 0.55, h * 0.6, w * 0.4, h * 0.35, 4);
+      g.fillRoundedRect(w * 0.5, h * 0.55, w * 0.48, h * 0.2, 4);   // front leg
+      g.fillRoundedRect(w * 0.45, h * 0.7, w * 0.45, h * 0.18, 4);  // back leg
+
+      // Shoes
+      g.fillStyle(0x333333, 1);
+      g.fillRoundedRect(w * 0.88, h * 0.55, w * 0.1, h * 0.12, 2);
+      g.fillRoundedRect(w * 0.82, h * 0.72, w * 0.1, h * 0.1, 2);
+
+      // Body tilted sideways
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(w * 0.12, h * 0.3, w * 0.45, h * 0.45, 6);
+
+      // Arm trailing behind
+      g.fillStyle((color * 0.85) | 0, 1);
+      g.fillRoundedRect(w * 0.0, h * 0.2, w * 0.2, h * 0.15, 3);
+
+      // Head tilted
+      g.fillStyle(0x9B7848, 1);
+      g.fillCircle(w * 0.18, h * 0.2, w * 0.14);   // hair
+      g.fillStyle(0xC6863E, 1);
+      g.fillCircle(w * 0.2, h * 0.22, w * 0.1);    // face
+
+      // Hair flowing behind
+      g.fillStyle(0x9B7848, 1);
+      g.fillRoundedRect(w * 0.02, h * 0.08, w * 0.2, h * 0.15, 4);
+
+      // Speed lines
+      g.lineStyle(1.5, 0xFFFFFF, 0.4);
+      g.lineBetween(w * 0.0, h * 0.45, w * 0.08, h * 0.45);
+      g.lineBetween(w * 0.0, h * 0.55, w * 0.1, h * 0.55);
+      g.lineBetween(w * 0.0, h * 0.65, w * 0.06, h * 0.65);
+
+      // No outline needed — speed lines convey motion
     }
 
-    // Outline
-    g.lineStyle(2, 0xFFFFFF, 0.3);
-    g.strokeRoundedRect(w * 0.15, h * 0.28, w * 0.7, h * 0.45, 8);
+    if (pose !== 'slide') {
+      // Outline
+      g.lineStyle(2, 0xFFFFFF, 0.3);
+      g.strokeRoundedRect(w * 0.15, h * 0.28, w * 0.7, h * 0.45, 8);
+    }
 
     g.generateTexture(key, w, h);
     g.destroy();
