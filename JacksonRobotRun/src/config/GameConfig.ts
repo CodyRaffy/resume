@@ -63,7 +63,7 @@ export const PLATFORM_JUMP_POINTS = 30;
 export const BAR_SLIDE_POINTS = 30;
 
 // Swipe detection
-export const SWIPE_THRESHOLD = 30; // minimum pixels for a swipe
+export const SWIPE_THRESHOLD = 15; // minimum pixels for a swipe
 
 // Colors (for placeholder graphics until real art is added)
 export const COLORS = {
