@@ -127,29 +127,38 @@ export class BootScene extends Phaser.Scene {
   private createPlayerTexture(key: string, w: number, h: number, color: number, pose: string): void {
     const g = this.add.graphics();
 
-    // Body
+    // Back-facing view: character runs INTO the screen (away from camera)
+
+    // Body (back of hoodie)
     g.fillStyle(color, 1);
     g.fillRoundedRect(w * 0.15, h * 0.2, w * 0.7, h * 0.55, 8);
 
-    // Head
+    // Head (back of head - just the round shape, no face)
     g.fillStyle(color, 1);
     g.fillCircle(w / 2, h * 0.15, w * 0.22);
 
-    // Eyes (visor)
-    g.fillStyle(0xFFFFFF, 0.9);
-    g.fillRoundedRect(w * 0.22, h * 0.08, w * 0.56, h * 0.1, 4);
-    g.fillStyle(0x00BFFF, 1);
-    g.fillCircle(w * 0.38, h * 0.13, 3);
-    g.fillCircle(w * 0.62, h * 0.13, 3);
+    // Hair (visible from behind - covers back of head)
+    g.fillStyle(0x9B7848, 1);
+    g.fillCircle(w / 2, h * 0.14, w * 0.21);
+    // Hair flowing down the back
+    g.fillRoundedRect(w * 0.28, h * 0.08, w * 0.44, h * 0.18, 6);
+
+    // Hood bunched at neck
+    g.fillStyle((color * 0.85) | 0, 1);
+    g.fillRoundedRect(w * 0.25, h * 0.22, w * 0.5, h * 0.06, 3);
+
+    // Back seam line on hoodie
+    g.lineStyle(1, 0x000000, 0.15);
+    g.lineBetween(w / 2, h * 0.26, w / 2, h * 0.7);
 
     if (pose === 'run') {
-      // Legs in running pose
-      g.fillStyle(color * 0.8 | 0, 1);
+      // Legs in running pose (back view)
+      g.fillStyle((color * 0.8) | 0, 1);
       g.fillRoundedRect(w * 0.2, h * 0.72, w * 0.22, h * 0.28, 4);
       g.fillRoundedRect(w * 0.55, h * 0.72, w * 0.22, h * 0.22, 4);
     } else if (pose === 'jump') {
-      // Legs tucked
-      g.fillStyle(color * 0.8 | 0, 1);
+      // Legs tucked (back view)
+      g.fillStyle((color * 0.8) | 0, 1);
       g.fillRoundedRect(w * 0.2, h * 0.7, w * 0.25, h * 0.18, 4);
       g.fillRoundedRect(w * 0.52, h * 0.7, w * 0.25, h * 0.18, 4);
       // Jump boost lines
@@ -158,8 +167,8 @@ export class BootScene extends Phaser.Scene {
       g.lineBetween(w * 0.5, h * 0.95, w * 0.5, h);
       g.lineBetween(w * 0.7, h * 0.95, w * 0.8, h);
     } else if (pose === 'slide') {
-      // Sliding — wide and flat
-      g.fillStyle(color * 0.8 | 0, 1);
+      // Sliding — wide and flat (back view)
+      g.fillStyle((color * 0.8) | 0, 1);
       g.fillRoundedRect(w * 0.05, h * 0.6, w * 0.4, h * 0.35, 4);
       g.fillRoundedRect(w * 0.55, h * 0.6, w * 0.4, h * 0.35, 4);
     }
