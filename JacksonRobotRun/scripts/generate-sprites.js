@@ -372,71 +372,75 @@ function drawJumpSprite() {
 function drawSlideSprite() {
   const W = 80, H = 48;
   const buf = new PixelBuffer(W, H);
-  const cy = H / 2;
 
-  // Sliding / ducking — character is low and wide (front view)
-  // Head on left side, legs extending right
+  // Baseball-style sideways slide: body leaning, one leg extended, one tucked
+  // Viewed from behind — character slides feet-first to the right
 
-  const headCX = 20;
-  const headCY = cy - 4;
-  const headR = 11;
+  const groundY = H - 6; // ground line
 
-  // ── Long hair behind body (spread out on ground) ──
-  buf.fillRoundRect(headCX - headR - 2, headCY - 2, 8, 20, 3, C.hair);
-  buf.fillRoundRect(headCX - headR - 1, headCY + 1, 6, 18, 2, C.hairDark);
-  // Hair flowing behind head on ground
-  buf.fillRoundRect(headCX - 6, headCY + headR - 2, 12, 8, 3, C.hair);
-  buf.fillRoundRect(headCX - 4, headCY + headR, 8, 6, 2, C.hairDark);
+  // ── Extended leg (right, stretched out low along ground) ──
+  buf.fillRoundRect(42, groundY - 10, 24, 9, 3, C.pants);
+  buf.fillRect(43, groundY - 6, 22, 3, C.pantsDark);
+  // Shoe on extended leg
+  buf.fillRoundRect(64, groundY - 11, 12, 8, 2, C.shoes);
+  buf.fillRect(64, groundY - 5, 12, 2, C.shoesSole);
 
-  // ── Hair top ──
+  // ── Tucked leg (left, bent underneath) ──
+  buf.fillRoundRect(30, groundY - 14, 16, 9, 3, C.pants);
+  buf.fillRect(31, groundY - 10, 14, 3, C.pantsDark);
+  // Shoe on tucked leg
+  buf.fillRoundRect(26, groundY - 11, 10, 7, 2, C.shoes);
+  buf.fillRect(26, groundY - 6, 10, 2, C.shoesSole);
+
+  // ── Body / torso (leaning sideways, tilted) ──
+  // Torso angled — higher on left (head side), lower on right (legs side)
+  buf.fillRoundRect(18, groundY - 30, 26, 20, 4, C.hoodie);
+  // Hood detail
+  buf.fillRoundRect(20, groundY - 30, 14, 5, 2, C.hoodieDark);
+  // Back seam
+  for (let y = groundY - 24; y < groundY - 12; y += 2)
+    buf.setPixel(31, y, C.hoodieDark);
+
+  // ── Arms ──
+  // Left arm (reaching forward/down to brace)
+  buf.fillRoundRect(12, groundY - 18, 8, 14, 3, C.hoodie);
+  buf.fillCircle(15, groundY - 5, 3, C.skin);
+  buf.fillRect(13, groundY - 8, 5, 3, C.watch);
+
+  // Right arm (tucked back)
+  buf.fillRoundRect(38, groundY - 26, 7, 12, 3, C.hoodie);
+  buf.fillCircle(41, groundY - 15, 2, C.skin);
+
+  // ── Head (leaning forward, side/back view) ──
+  const headCX = 18;
+  const headCY = groundY - 36;
+  const headR = 10;
+
+  // Hair (back/side view)
   buf.fillCircle(headCX, headCY, headR, C.hair);
+  buf.fillEllipse(headCX - 2, headCY - 2, 3, 6, C.hairDark);
+  buf.fillEllipse(headCX + 2, headCY - 4, 4, 3, C.hairLight);
+  // Hair flowing back from speed
+  buf.fillRoundRect(headCX - headR - 3, headCY - 4, 8, 12, 3, C.hair);
+  buf.fillRoundRect(headCX - headR - 2, headCY - 2, 6, 10, 2, C.hairDark);
 
-  // ── Face ──
-  buf.fillEllipse(headCX, headCY + 1, 8, 9, C.skin);
+  // Ear (visible on the side)
+  buf.fillCircle(headCX + headR - 1, headCY + 2, 2, C.skin);
 
-  // ── Hair bangs ──
-  buf.fillEllipse(headCX, headCY - 6, 9, 5, C.hair);
-  buf.fillRoundRect(headCX - 8, headCY - 8, 6, 5, 2, C.hair);
-  buf.fillRoundRect(headCX + 3, headCY - 7, 5, 4, 2, C.hair);
-  buf.fillRoundRect(headCX - 6, headCY - 7, 4, 3, 1, C.hairLight);
+  // Neck
+  buf.fillRect(headCX - 2, headCY + headR - 2, 8, 5, C.skin);
 
-  // ── Face features ──
-  buf.fillRect(headCX - 5, headCY - 1, 3, 2, C.eyeWhite);
-  buf.fillRect(headCX + 2, headCY - 1, 3, 2, C.eyeWhite);
-  buf.fillRect(headCX - 4, headCY, 2, 1, C.eyePupil);
-  buf.fillRect(headCX + 3, headCY, 2, 1, C.eyePupil);
-  buf.setPixel(headCX, headCY + 3, C.skinDark);
-  buf.fillRect(headCX - 2, headCY + 5, 5, 1, C.smile);
+  // ── Speed/slide lines ──
+  const lineColor = [255, 255, 255, 120];
+  buf.fillRect(2, groundY - 20, 8, 1, lineColor);
+  buf.fillRect(4, groundY - 14, 6, 1, lineColor);
+  buf.fillRect(1, groundY - 8, 9, 1, lineColor);
 
-  // ── Body (horizontal, sliding, front view) ──
-  buf.fillRoundRect(headCX + 6, cy - 8, 30, 18, 4, C.hoodie);
-  // Collar
-  buf.fillRoundRect(headCX + 4, cy - 6, 8, 14, 2, C.hoodieDark);
-  // Zipper line
-  for (let x = headCX + 14; x < headCX + 34; x += 3)
-    buf.setPixel(x, cy, C.hoodieDark);
-
-  // Arms (tucked alongside body)
-  buf.fillRoundRect(headCX + 8, cy - 12, 6, 8, 2, C.hoodie);
-  buf.fillCircle(headCX + 11, cy - 13, 2, C.skin);
-  buf.fillRect(headCX + 9, cy - 10, 4, 2, C.watch);
-
-  buf.fillRoundRect(headCX + 8, cy + 6, 6, 8, 2, C.hoodie);
-  buf.fillCircle(headCX + 11, cy + 14, 2, C.skin);
-
-  // Legs (extended right)
-  buf.fillRoundRect(headCX + 34, cy - 6, 20, 8, 3, C.pants);
-  buf.fillRoundRect(headCX + 34, cy + 0, 20, 8, 3, C.pants);
-
-  // Shoes
-  buf.fillRoundRect(headCX + 52, cy - 6, 8, 7, 2, C.shoes);
-  buf.fillRoundRect(headCX + 52, cy + 1, 8, 7, 2, C.shoes);
-
-  // Ground slide lines
-  const lineColor = [255, 255, 255, 100];
-  for (let i = 0; i < 4; i++) {
-    buf.fillRect(4 + i * 5, cy + 12 + (i % 2), 8, 1, lineColor);
-  }
+  // ── Ground dust particles ──
+  const dustColor = [200, 200, 200, 80];
+  buf.fillCircle(50, groundY - 2, 3, dustColor);
+  buf.fillCircle(58, groundY - 1, 2, dustColor);
+  buf.fillCircle(44, groundY - 1, 2, dustColor);
 
   return buf.toPNG();
 }

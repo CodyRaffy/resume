@@ -20,6 +20,7 @@ export class Obstacle extends Phaser.GameObjects.Sprite {
   lane: number;
   depth_z: number = 0;
   secondSpriteBounds: Phaser.Geom.Rectangle | null = null;
+  duckBonusAwarded: boolean = false;
 
   private secondSprite: Phaser.GameObjects.Sprite | null = null;
   private secondLane: number = -1;
@@ -54,24 +55,29 @@ export class Obstacle extends Phaser.GameObjects.Sprite {
   updatePosition(speed: number, delta: number): void {
     this.depth_z += speed * delta * 0.0008;
 
-    if (this.depth_z > 1.2) return;
+    if (this.depth_z > 1.3) return;
 
-    // Perspective
-    const perspT = Math.min(this.depth_z * this.depth_z, 1);
-    const scale = Phaser.Math.Linear(MIN_SCALE, MAX_SCALE, perspT);
+    // Perspective — don't clamp so objects keep moving past the player
+    const perspT = this.depth_z * this.depth_z;
+    const scale = Phaser.Math.Linear(MIN_SCALE, MAX_SCALE, Math.min(perspT, 1.2));
     const y = Phaser.Math.Linear(HORIZON_Y, GROUND_Y, perspT);
 
     // Lane spread: lanes converge at the vanishing point
-    const laneSpread = Phaser.Math.Linear(0.4, 1, perspT);
+    const laneSpread = Phaser.Math.Linear(0.4, 1, Math.min(perspT, 1));
     const laneOffset = (LANE_POSITIONS[this.lane] - VANISHING_POINT_X) * laneSpread;
     const x = VANISHING_POINT_X + laneOffset;
 
     this.setPosition(x, y);
     this.setScale(scale);
-    this.setDepth(30 + perspT * 10);
+    this.setDepth(30 + Math.min(perspT, 1) * 10);
 
-    // Fade in as it approaches
-    this.setAlpha(Math.min(1, this.depth_z * 3));
+    // Fade in as it approaches, fade out after passing player
+    if (this.depth_z < 1.0) {
+      this.setAlpha(Math.min(1, this.depth_z * 3));
+    } else {
+      // Quickly fade out after passing
+      this.setAlpha(Math.max(0, 1 - (this.depth_z - 1.0) * 5));
+    }
 
     // Flying robots hover higher
     if (this.obstacleType === 'flying') {
@@ -89,8 +95,12 @@ export class Obstacle extends Phaser.GameObjects.Sprite {
       const secondX = VANISHING_POINT_X + secondLaneOffset;
       this.secondSprite.setPosition(secondX, y);
       this.secondSprite.setScale(scale);
-      this.secondSprite.setDepth(30 + perspT * 10);
-      this.secondSprite.setAlpha(Math.min(1, this.depth_z * 3));
+      this.secondSprite.setDepth(30 + Math.min(perspT, 1) * 10);
+      if (this.depth_z < 1.0) {
+        this.secondSprite.setAlpha(Math.min(1, this.depth_z * 3));
+      } else {
+        this.secondSprite.setAlpha(Math.max(0, 1 - (this.depth_z - 1.0) * 5));
+      }
       this.secondSpriteBounds = this.secondSprite.getBounds();
     }
   }
