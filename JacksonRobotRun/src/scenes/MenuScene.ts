@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, COLORS } from '../config/GameConfig';
 import { ScoreManager } from '../managers/ScoreManager';
+import { AudioManager } from '../managers/AudioManager';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -64,6 +65,9 @@ export class MenuScene extends Phaser.Scene {
     // Make play button interactive
     const hitArea = this.add.zone(GAME_WIDTH / 2, btnY + 30, 200, 60).setInteractive();
     hitArea.on('pointerdown', () => {
+      const audio = AudioManager.getInstance();
+      audio.unlock();
+      audio.playClick();
       this.tweens.add({
         targets: [playText],
         scaleX: 0.9,
@@ -115,6 +119,23 @@ export class MenuScene extends Phaser.Scene {
       align: 'center',
     });
     controlsText.setOrigin(0.5, 0.5);
+
+    // Sound toggle button
+    const audio = AudioManager.getInstance();
+    const soundBtn = this.add.text(GAME_WIDTH - 15, GAME_HEIGHT - 15, audio.isMuted() ? 'SOUND: OFF' : 'SOUND: ON', {
+      fontFamily: 'Arial',
+      fontSize: '14px',
+      color: '#FFFFFF',
+      stroke: '#000000',
+      strokeThickness: 2,
+    });
+    soundBtn.setOrigin(1, 1);
+    soundBtn.setInteractive({ useHandCursor: true });
+    soundBtn.on('pointerdown', () => {
+      audio.unlock();
+      const muted = audio.toggleMute();
+      soundBtn.setText(muted ? 'SOUND: OFF' : 'SOUND: ON');
+    });
 
     // Animated Jackson character on the menu
     const jackson = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT * 0.75, 'player');

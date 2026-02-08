@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT } from '../config/GameConfig';
+import { AudioManager } from '../managers/AudioManager';
 
 export class PauseScene extends Phaser.Scene {
   constructor() {
@@ -33,6 +34,7 @@ export class PauseScene extends Phaser.Scene {
     resumeBtn.setOrigin(0.5, 0.5);
     resumeBtn.setInteractive();
     resumeBtn.on('pointerdown', () => {
+      AudioManager.getInstance().playClick();
       const gameScene = this.scene.get('GameScene') as any;
       gameScene.isPaused = false;
       this.scene.stop();
@@ -49,6 +51,8 @@ export class PauseScene extends Phaser.Scene {
     quitBtn.setOrigin(0.5, 0.5);
     quitBtn.setInteractive();
     quitBtn.on('pointerdown', () => {
+      AudioManager.getInstance().playClick();
+      AudioManager.getInstance().stopMusic();
       this.scene.stop('GameScene');
       this.scene.stop();
       this.scene.start('MenuScene');
