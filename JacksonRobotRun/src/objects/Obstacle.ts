@@ -94,7 +94,7 @@ export class Obstacle extends Phaser.GameObjects.Sprite {
 
   destroy(fromScene?: boolean): void {
     if (this.secondSprite) {
-      this.secondSprite.destroy();
+      this.secondSprite.destroy(fromScene);
       this.secondSprite = null;
     }
     this.secondSpriteBounds = null;

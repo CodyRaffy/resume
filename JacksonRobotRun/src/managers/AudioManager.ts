@@ -1,3 +1,5 @@
+import Phaser from 'phaser';
+
 /**
  * AudioManager - handles sound effects and background music.
  * Currently a stub that will be populated when audio assets are added.

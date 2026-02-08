@@ -19,13 +19,14 @@ export class LevelManager {
     return this.currentSpeed;
   }
 
-  checkLevelUp(score: number): void {
+  checkLevelUp(score: number, delta: number): void {
     const level = this.getCurrentLevel();
 
-    // Gradually increase speed within the level
+    // Gradually increase speed (delta-scaled so frame-rate independent)
+    // speedIncreaseRate is per-second; delta is in ms
     this.currentSpeed = Math.min(
       level.maxSpeed,
-      this.currentSpeed + level.speedIncreaseRate
+      this.currentSpeed + level.speedIncreaseRate * (delta / 1000)
     );
 
     // Check if we should advance to the next level
@@ -34,9 +35,10 @@ export class LevelManager {
       const nextLevel = LEVELS[nextLevelIndex];
       if (score >= nextLevel.scoreThreshold) {
         this.currentLevelIndex = nextLevelIndex;
-        this.currentSpeed = nextLevel.speed;
+        // Don't reset speed — keep current speed, just raise the max ceiling.
+        // If current speed is below new level's base, bump up to it.
+        this.currentSpeed = Math.max(this.currentSpeed, nextLevel.speed);
 
-        // Notify the game scene about the level change
         if (this.lastLevelId !== nextLevel.id) {
           this.lastLevelId = nextLevel.id;
           this.onLevelUp(nextLevel);
@@ -46,7 +48,6 @@ export class LevelManager {
   }
 
   private onLevelUp(level: LevelDefinition): void {
-    // Trigger level announcement in game scene
     const gameScene = this.scene as any;
     if (gameScene.showLevelAnnouncement) {
       gameScene.showLevelAnnouncement(`Level ${level.id}: ${level.name}`);

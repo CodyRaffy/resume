@@ -12,9 +12,10 @@ import { InputManager } from '../managers/InputManager';
 import { Obstacle } from '../objects/Obstacle';
 import { Collectible } from '../objects/Collectible';
 
-// Depth zone where collisions are checked (obstacle near the player)
-const COLLISION_Z_MIN = 0.82;
-const COLLISION_Z_MAX = 1.05;
+// Depth zone where collisions are checked (obstacle near the player).
+// Widened to prevent skipping at high speed + low framerate.
+const COLLISION_Z_MIN = 0.75;
+const COLLISION_Z_MAX = 1.10;
 
 export class GameScene extends Phaser.Scene {
   player!: Player;
@@ -121,8 +122,8 @@ export class GameScene extends Phaser.Scene {
     // Distance score
     this.scoreManager.addDistance(DISTANCE_POINTS_PER_TICK);
 
-    // Level check
-    this.levelManager.checkLevelUp(this.scoreManager.getScore());
+    // Level check (pass delta for frame-rate-independent speed ramp)
+    this.levelManager.checkLevelUp(this.scoreManager.getScore(), delta);
 
     // Spawn
     this.spawnManager.update(delta, currentLevel, speed);
@@ -412,8 +413,8 @@ export class GameScene extends Phaser.Scene {
 
   onCollectiblePickup(collectible: Collectible): void {
     const basePoints = collectible.getPoints();
-    this.scoreManager.addCollectible(basePoints);
-    const earned = basePoints * this.scoreManager.getMultiplier();
+    // addCollectible returns the actual earned value (with multiplier applied)
+    const earned = this.scoreManager.addCollectible(basePoints);
 
     // Floating score text
     const floatText = this.add.text(collectible.x, collectible.y, `+${earned}`, {

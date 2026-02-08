@@ -58,7 +58,6 @@ export const COLLECTIBLE_POINTS = {
 
 // Swipe detection
 export const SWIPE_THRESHOLD = 30; // minimum pixels for a swipe
-export const SWIPE_MAX_TIME = 300; // max ms for a swipe gesture
 
 // Colors (for placeholder graphics until real art is added)
 export const COLORS = {

@@ -99,7 +99,9 @@ export class Player extends Phaser.GameObjects.Sprite {
 
     if (this.playerState === 'sliding') {
       h = this.slideHeight * 0.7;
-      y = this.baseY + this.normalHeight / 2 - h;
+      // Match the visual sprite position: sprite y is baseY + offset
+      const slideY = this.baseY + (this.normalHeight - this.slideHeight) / 2;
+      y = slideY - h / 2 + this.slideHeight / 2;
     } else {
       h = this.normalHeight * 0.8;
       y = this.y - h / 2;

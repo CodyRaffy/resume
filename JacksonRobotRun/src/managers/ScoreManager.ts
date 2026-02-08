@@ -11,18 +11,24 @@ export class ScoreManager {
 
   addDistance(points: number): void {
     this.distanceAccumulator += points;
-    // Only add 1 score point per 10 distance ticks (so score isn't crazy fast)
     if (this.distanceAccumulator >= 10) {
       this.score += 1;
       this.distanceAccumulator -= 10;
     }
   }
 
-  addCollectible(basePoints: number): void {
+  /**
+   * Adds collectible points. Returns the actual points earned (after multiplier).
+   * Multiplier is computed BEFORE incrementing combo, so the bonus
+   * takes effect starting from the NEXT pickup.
+   */
+  addCollectible(basePoints: number): number {
+    const multiplier = this.getMultiplier();
+    const earned = basePoints * multiplier;
+    this.score += earned;
     this.combo++;
     this.collected++;
-    const multiplier = this.getMultiplier();
-    this.score += basePoints * multiplier;
+    return earned;
   }
 
   resetCombo(): void {
@@ -58,14 +64,13 @@ export class ScoreManager {
         localStorage.setItem(HIGH_SCORE_KEY, String(this.score));
       }
 
-      // Save stats
       const stats = ScoreManager.getStats();
       stats.totalGames = (stats.totalGames || 0) + 1;
       stats.totalScore = (stats.totalScore || 0) + this.score;
       stats.totalCollected = (stats.totalCollected || 0) + this.collected;
       localStorage.setItem(STATS_KEY, JSON.stringify(stats));
     } catch {
-      // localStorage not available (private browsing, etc.)
+      // localStorage not available
     }
   }
 

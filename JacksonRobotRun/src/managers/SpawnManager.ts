@@ -1,13 +1,13 @@
 import Phaser from 'phaser';
 import { COLLECTIBLE_CHANCE } from '../config/GameConfig';
-import { LevelDefinition, ObstacleType, CollectibleType } from '../config/LevelConfig';
+import { LevelDefinition, CollectibleType } from '../config/LevelConfig';
 import { Obstacle } from '../objects/Obstacle';
 import { Collectible } from '../objects/Collectible';
 
 export class SpawnManager {
   private scene: Phaser.Scene;
   private timeSinceLastSpawn: number = 0;
-  private currentInterval: number = 2000;
+  private totalTimeElapsed: number = 0;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -15,18 +15,20 @@ export class SpawnManager {
 
   update(delta: number, level: LevelDefinition, _speed: number): void {
     this.timeSinceLastSpawn += delta;
+    this.totalTimeElapsed += delta;
 
-    // Gradually decrease spawn interval within level bounds
-    this.currentInterval = Math.max(
+    // Spawn interval decreases over time from level.spawnInterval to level.minSpawnInterval
+    // Reaches min over ~60 seconds of play within the level
+    const rampProgress = Math.min(1, this.totalTimeElapsed / 60000);
+    const currentInterval = Phaser.Math.Linear(
+      level.spawnInterval,
       level.minSpawnInterval,
-      this.currentInterval - delta * 0.01
+      rampProgress
     );
 
-    if (this.timeSinceLastSpawn >= this.currentInterval) {
+    if (this.timeSinceLastSpawn >= currentInterval) {
       this.timeSinceLastSpawn = 0;
-      this.currentInterval = level.spawnInterval; // Reset for next spawn
 
-      // Decide: obstacle or collectible?
       if (Math.random() < (level.collectibleRate || COLLECTIBLE_CHANCE)) {
         this.spawnCollectible(level);
       } else {
@@ -38,16 +40,10 @@ export class SpawnManager {
   private spawnObstacle(level: LevelDefinition): void {
     const gameScene = this.scene as any;
 
-    // Pick a random obstacle type from the level's allowed types
     const types = level.obstacleTypes;
     const type = types[Phaser.Math.Between(0, types.length - 1)];
 
-    // Pick lane(s)
-    const lane = Phaser.Math.Between(0, 2);
-
-    let secondLane: number | undefined;
     if (type === 'doubleBlocker') {
-      // Block two lanes, leave one open
       const openLane = Phaser.Math.Between(0, 2);
       const blockedLanes = [0, 1, 2].filter(l => l !== openLane);
       const obstacle = new Obstacle(this.scene, type, blockedLanes[0], blockedLanes[1]);
@@ -55,14 +51,14 @@ export class SpawnManager {
       return;
     }
 
-    const obstacle = new Obstacle(this.scene, type, lane, secondLane);
+    const lane = Phaser.Math.Between(0, 2);
+    const obstacle = new Obstacle(this.scene, type, lane);
     gameScene.obstacles.add(obstacle);
   }
 
   private spawnCollectible(level: LevelDefinition): void {
     const gameScene = this.scene as any;
 
-    // Pick collectible type with weighted rarity
     const type = this.pickCollectibleType(level.collectibleTypes);
     const lane = Phaser.Math.Between(0, 2);
 
@@ -71,7 +67,6 @@ export class SpawnManager {
   }
 
   private pickCollectibleType(types: CollectibleType[]): CollectibleType {
-    // Weighted random: bronze is most common, special is rarest
     const weights: Record<CollectibleType, number> = {
       bronze: 50,
       silver: 30,

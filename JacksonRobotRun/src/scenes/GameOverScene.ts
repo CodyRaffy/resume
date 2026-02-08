@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT } from '../config/GameConfig';
-import { ScoreManager } from '../managers/ScoreManager';
 
 interface GameOverData {
   score: number;
