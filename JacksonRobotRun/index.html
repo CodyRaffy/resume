@@ -65,6 +65,11 @@
       color: rgba(255, 255, 255, 0.9);
       background: rgba(0, 0, 0, 0.6);
     }
+
+    /* Hide back-link when running as installed PWA */
+    @media all and (display-mode: standalone) {
+      #back-link { display: none; }
+    }
   </style>
 </head>
 <body>
