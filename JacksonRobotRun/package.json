@@ -8,10 +8,19 @@
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
-  "keywords": ["game", "phaser", "endless-runner"],
+  "keywords": [
+    "game",
+    "phaser",
+    "endless-runner"
+  ],
   "author": "Cody Raffensperger",
   "license": "ISC",
   "dependencies": {
+    "@capacitor/camera": "^8.0.0",
+    "@capacitor/cli": "^8.0.2",
+    "@capacitor/core": "^8.0.2",
+    "@capacitor/filesystem": "^8.1.0",
+    "@capacitor/preferences": "^8.0.0",
     "phaser": "^3.90.0"
   },
   "devDependencies": {

@@ -2,9 +2,10 @@ import Phaser from 'phaser';
 import {
   GAME_WIDTH, GAME_HEIGHT, LANE_POSITIONS, DEFAULT_LANE,
   HORIZON_Y, GROUND_Y, PLAYER_Y, STARTING_LIVES,
-  COLORS, DISTANCE_POINTS_PER_TICK, PLATFORM_JUMP_POINTS, BAR_SLIDE_POINTS,
-  DUCK_BONUS_POINTS,
+  DISTANCE_POINTS_PER_TICK,
 } from '../config/GameConfig';
+import { ThemeManager } from '../managers/ThemeManager';
+import { ThemeDefinition } from '../config/ThemeConfig';
 import { Player } from '../objects/Player';
 import { SpawnManager } from '../managers/SpawnManager';
 import { ScoreManager } from '../managers/ScoreManager';
@@ -12,11 +13,11 @@ import { LevelManager } from '../managers/LevelManager';
 import { InputManager } from '../managers/InputManager';
 import { Obstacle } from '../objects/Obstacle';
 import { Collectible } from '../objects/Collectible';
-import { AudioManager } from '../managers/AudioManager';
 
 // Depth zone where collisions are checked (obstacle near the player).
-const COLLISION_Z_MIN = 0.82;
-const COLLISION_Z_MAX = 1.0;
+// Widened to prevent skipping at high speed + low framerate.
+const COLLISION_Z_MIN = 0.75;
+const COLLISION_Z_MAX = 1.10;
 
 export class GameScene extends Phaser.Scene {
   player!: Player;
@@ -33,7 +34,9 @@ export class GameScene extends Phaser.Scene {
   isGameOver: boolean = false;
   isPaused: boolean = false;
   isInvincible: boolean = false;
-  isLevelTransition: boolean = false;
+
+  // Active theme
+  private theme!: ThemeDefinition;
 
   // HUD elements
   scoreText!: Phaser.GameObjects.Text;
@@ -57,12 +60,14 @@ export class GameScene extends Phaser.Scene {
     this.isGameOver = false;
     this.isPaused = false;
     this.isInvincible = false;
-    this.isLevelTransition = false;
     this.lives = STARTING_LIVES;
     this.groundLines = [];
     this.groundLinePositions = [];
 
-    // Draw background and ground
+    // Get the active theme
+    this.theme = ThemeManager.getTheme();
+
+    // Draw themed background and ground
     this.drawBackground();
     this.drawGround();
 
@@ -99,27 +104,6 @@ export class GameScene extends Phaser.Scene {
     this.levelAnnouncement.setAlpha(0);
     this.levelAnnouncement.setDepth(100);
 
-    // Start music
-    const audio = AudioManager.getInstance();
-    audio.unlock();
-    audio.playMusic();
-
-    // Mute button
-    const muteBtn = this.add.text(GAME_WIDTH - 50, 30, audio.isMuted() ? 'M' : 'S', {
-      fontFamily: 'Arial Black',
-      fontSize: '16px',
-      color: '#FFFFFF',
-      stroke: '#000000',
-      strokeThickness: 3,
-    });
-    muteBtn.setOrigin(0.5, 0.5);
-    muteBtn.setInteractive({ useHandCursor: true });
-    muteBtn.setDepth(100);
-    muteBtn.on('pointerdown', () => {
-      const muted = audio.toggleMute();
-      muteBtn.setText(muted ? 'M' : 'S');
-    });
-
     // Pause button
     const pauseBtn = this.add.text(GAME_WIDTH - 15, 15, '| |', {
       fontFamily: 'Arial Black',
@@ -139,14 +123,6 @@ export class GameScene extends Phaser.Scene {
 
     const currentLevel = this.levelManager.getCurrentLevel();
     const speed = this.levelManager.getCurrentSpeed();
-
-    // During level transition, only update player shadow and HUD — freeze everything else
-    if (this.isLevelTransition) {
-      this.playerShadow.x = this.player.x;
-      this.playerShadow.y = PLAYER_Y + 44;
-      this.updateHUD();
-      return;
-    }
 
     // Scrolling ground lines
     this.updateGround(speed, delta);
@@ -173,47 +149,17 @@ export class GameScene extends Phaser.Scene {
       obstacle.updatePosition(speed, delta);
 
       // Only check collision when obstacle is near the player
-      if (obstacle.depth_z >= COLLISION_Z_MIN
+      if (!this.isInvincible
+        && obstacle.depth_z >= COLLISION_Z_MIN
         && obstacle.depth_z <= COLLISION_Z_MAX
+        && this.checkPlayerVsObstacle(obstacle)
       ) {
-        // Platforms: jumping on them awards points
-        if (obstacle.obstacleType === 'platform'
-          && this.player.playerState === 'jumping'
-          && this.checkPlayerVsObstacle(obstacle)
-        ) {
-          this.onPlatformLand(obstacle);
-          continue;
-        }
-
-        // Bars: sliding under them awards points (check lane, not bounds —
-        // the bar is elevated so bounds won't overlap with the sliding player)
-        if (obstacle.obstacleType === 'bar'
-          && this.player.playerState === 'sliding'
-          && this.player.currentLane === obstacle.lane
-          && !obstacle.duckBonusAwarded
-        ) {
-          this.onBarSlide(obstacle);
-          continue;
-        }
-
-        // Tall/flying obstacles: ducking under them awards bonus points
-        if ((obstacle.obstacleType === 'tall' || obstacle.obstacleType === 'flying')
-          && this.player.playerState === 'sliding'
-          && this.player.currentLane === obstacle.lane
-          && !obstacle.duckBonusAwarded
-        ) {
-          this.onDuckUnder(obstacle);
-        }
-
-        // Normal obstacle collision
-        if (!this.isInvincible && this.checkPlayerVsObstacle(obstacle)) {
-          this.onObstacleHit(obstacle);
-          continue;
-        }
+        this.onObstacleHit(obstacle);
+        continue; // obstacle destroyed in onObstacleHit
       }
 
       // Remove if past the camera
-      if (obstacle.depth_z > 1.05) {
+      if (obstacle.depth_z > 1.15) {
         obstaclesToDestroy.push(obstacle);
       }
     }
@@ -234,7 +180,7 @@ export class GameScene extends Phaser.Scene {
         continue;
       }
 
-      if (collectible.depth_z > 1.05) {
+      if (collectible.depth_z > 1.15) {
         collectiblesToDestroy.push(collectible);
       }
     }
@@ -248,43 +194,51 @@ export class GameScene extends Phaser.Scene {
 
   private drawBackground(): void {
     const bg = this.add.graphics();
-    bg.fillStyle(COLORS.sky, 1);
+    const c = this.theme.colors;
+    bg.fillStyle(c.sky, 1);
     bg.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-    // City skyline silhouette
-    bg.fillStyle(0x2C3E50, 1);
-    const buildings = [
-      { x: 10, w: 45, h: 85 }, { x: 65, w: 35, h: 55 },
-      { x: 108, w: 52, h: 105 }, { x: 168, w: 38, h: 72 },
-      { x: 215, w: 48, h: 92 }, { x: 275, w: 32, h: 58 },
-      { x: 315, w: 58, h: 115 }, { x: 382, w: 42, h: 78 },
-      { x: 430, w: 40, h: 68 },
-    ];
-    buildings.forEach(b => {
-      bg.fillRect(b.x, HORIZON_Y - b.h, b.w, b.h);
-      // Window dots
-      bg.fillStyle(0x4A6B8A, 0.5);
-      for (let wy = HORIZON_Y - b.h + 8; wy < HORIZON_Y - 8; wy += 14) {
-        for (let wx = b.x + 6; wx < b.x + b.w - 6; wx += 10) {
-          bg.fillRect(wx, wy, 4, 6);
-        }
+    if (this.theme.background.type === 'stars') {
+      // Space: draw random stars
+      for (let i = 0; i < 80; i++) {
+        const sx = Phaser.Math.Between(0, GAME_WIDTH);
+        const sy = Phaser.Math.Between(0, HORIZON_Y);
+        const brightness = Phaser.Math.FloatBetween(0.3, 1);
+        const size = Phaser.Math.FloatBetween(0.5, 2);
+        bg.fillStyle(0xFFFFFF, brightness);
+        bg.fillCircle(sx, sy, size);
       }
-      bg.fillStyle(0x2C3E50, 1);
-    });
+    } else {
+      // City / Stadium / Mountains skyline
+      bg.fillStyle(c.buildings, 1);
+      const elements = this.theme.background.elements;
+      elements.forEach(b => {
+        bg.fillRect(b.x, HORIZON_Y - b.h, b.w, b.h);
+        // Window dots
+        bg.fillStyle(c.buildingWindows, 0.5);
+        for (let wy = HORIZON_Y - b.h + 8; wy < HORIZON_Y - 8; wy += 14) {
+          for (let wx = b.x + 6; wx < b.x + b.w - 6; wx += 10) {
+            bg.fillRect(wx, wy, 4, 6);
+          }
+        }
+        bg.fillStyle(c.buildings, 1);
+      });
+    }
 
     // Horizon glow
-    bg.fillStyle(0xBBDDEE, 0.3);
+    bg.fillStyle(c.horizonGlow, 0.3);
     bg.fillRect(0, HORIZON_Y - 2, GAME_WIDTH, 4);
   }
 
   private drawGround(): void {
+    const c = this.theme.colors;
     const ground = this.add.graphics();
-    ground.fillStyle(COLORS.ground, 1);
+    ground.fillStyle(c.ground, 1);
     ground.fillRect(0, HORIZON_Y, GAME_WIDTH, GAME_HEIGHT - HORIZON_Y);
 
     // Perspective road
     const road = this.add.graphics();
-    road.fillStyle(0x3a3a3a, 1);
+    road.fillStyle(c.road, 1);
 
     const topLeft = GAME_WIDTH * 0.35;
     const topRight = GAME_WIDTH * 0.65;
@@ -305,7 +259,7 @@ export class GameScene extends Phaser.Scene {
     road.lineBetween(topRight, HORIZON_Y, botRight, GAME_HEIGHT);
 
     // Lane dividers (static dashed lines)
-    road.lineStyle(2, 0xFFFFFF, 0.25);
+    road.lineStyle(2, c.laneLines, 0.25);
     const lDiv1TopX = Phaser.Math.Linear(topLeft, topRight, 0.33);
     const lDiv1BotX = Phaser.Math.Linear(botLeft, botRight, 0.33);
     road.lineBetween(lDiv1TopX, HORIZON_Y, lDiv1BotX, GAME_HEIGHT);
@@ -353,7 +307,7 @@ export class GameScene extends Phaser.Scene {
 
   private createHUD(): void {
     const hudBg = this.add.graphics();
-    hudBg.fillStyle(COLORS.hud_bg, 0.6);
+    hudBg.fillStyle(this.theme.colors.hudBg, 0.6);
     hudBg.fillRect(0, 0, GAME_WIDTH, 48);
     hudBg.setDepth(90);
 
@@ -444,8 +398,6 @@ export class GameScene extends Phaser.Scene {
     this.scoreManager.resetCombo();
     obstacle.destroy();
 
-    AudioManager.getInstance().playHit();
-
     // Screen shake
     this.cameras.main.shake(300, 0.015);
 
@@ -475,128 +427,7 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  onPlatformLand(platform: Obstacle): void {
-    AudioManager.getInstance().playPlatformLand();
-    const earned = this.scoreManager.addCollectible(PLATFORM_JUMP_POINTS);
-
-    // Floating score text
-    const floatText = this.add.text(platform.x, platform.y, `+${earned}`, {
-      fontFamily: 'Arial Black',
-      fontSize: '22px',
-      color: '#2ECC71',
-      stroke: '#000000',
-      strokeThickness: 4,
-    }).setOrigin(0.5, 0.5).setDepth(90);
-
-    this.tweens.add({
-      targets: floatText,
-      y: floatText.y - 80,
-      alpha: 0,
-      scaleX: 1.4,
-      scaleY: 1.4,
-      duration: 900,
-      ease: 'Sine.easeOut',
-      onComplete: () => floatText.destroy(),
-    });
-
-    // Green particle burst
-    const particles = this.add.particles(platform.x, platform.y, 'particle', {
-      speed: { min: 40, max: 120 },
-      scale: { start: 1.2, end: 0 },
-      lifespan: 450,
-      quantity: 10,
-      tint: 0x2ECC71,
-      emitting: false,
-    });
-    particles.setDepth(85);
-    particles.explode();
-    this.time.delayedCall(500, () => particles.destroy());
-
-    platform.destroy();
-  }
-
-  onBarSlide(bar: Obstacle): void {
-    bar.duckBonusAwarded = true;
-    AudioManager.getInstance().playBarSlide();
-    const earned = this.scoreManager.addCollectible(BAR_SLIDE_POINTS);
-
-    // Floating score text
-    const floatText = this.add.text(bar.x, bar.y, `+${earned}`, {
-      fontFamily: 'Arial Black',
-      fontSize: '22px',
-      color: '#F39C12',
-      stroke: '#000000',
-      strokeThickness: 4,
-    }).setOrigin(0.5, 0.5).setDepth(90);
-
-    this.tweens.add({
-      targets: floatText,
-      y: floatText.y - 80,
-      alpha: 0,
-      scaleX: 1.4,
-      scaleY: 1.4,
-      duration: 900,
-      ease: 'Sine.easeOut',
-      onComplete: () => floatText.destroy(),
-    });
-
-    // Orange particle burst
-    const particles = this.add.particles(bar.x, bar.y, 'particle', {
-      speed: { min: 40, max: 120 },
-      scale: { start: 1.2, end: 0 },
-      lifespan: 450,
-      quantity: 10,
-      tint: 0xF39C12,
-      emitting: false,
-    });
-    particles.setDepth(85);
-    particles.explode();
-    this.time.delayedCall(500, () => particles.destroy());
-
-    bar.destroy();
-  }
-
-  onDuckUnder(obstacle: Obstacle): void {
-    obstacle.duckBonusAwarded = true;
-    AudioManager.getInstance().playBarSlide();
-    const earned = this.scoreManager.addCollectible(DUCK_BONUS_POINTS);
-
-    // Floating score text
-    const floatText = this.add.text(obstacle.x, obstacle.y, `+${earned}`, {
-      fontFamily: 'Arial Black',
-      fontSize: '20px',
-      color: '#00BFFF',
-      stroke: '#000000',
-      strokeThickness: 4,
-    }).setOrigin(0.5, 0.5).setDepth(90);
-
-    this.tweens.add({
-      targets: floatText,
-      y: floatText.y - 70,
-      alpha: 0,
-      scaleX: 1.3,
-      scaleY: 1.3,
-      duration: 800,
-      ease: 'Sine.easeOut',
-      onComplete: () => floatText.destroy(),
-    });
-
-    // Cyan particle burst
-    const particles = this.add.particles(obstacle.x, obstacle.y, 'particle', {
-      speed: { min: 30, max: 100 },
-      scale: { start: 1, end: 0 },
-      lifespan: 400,
-      quantity: 8,
-      tint: 0x00BFFF,
-      emitting: false,
-    });
-    particles.setDepth(85);
-    particles.explode();
-    this.time.delayedCall(500, () => particles.destroy());
-  }
-
   onCollectiblePickup(collectible: Collectible): void {
-    AudioManager.getInstance().playCollect();
     const basePoints = collectible.getPoints();
     // addCollectible returns the actual earned value (with multiplier applied)
     const earned = this.scoreManager.addCollectible(basePoints);
@@ -643,13 +474,6 @@ export class GameScene extends Phaser.Scene {
   // --- Level Announcement ---
 
   showLevelAnnouncement(levelName: string): void {
-    // Freeze obstacles and clear the field
-    this.isLevelTransition = true;
-
-    // Destroy all existing obstacles and collectibles
-    this.obstacles.getChildren().slice().forEach(o => o.destroy());
-    this.collectibles.getChildren().slice().forEach(c => c.destroy());
-
     this.levelAnnouncement.setText(`${levelName}!`);
     this.levelAnnouncement.setAlpha(1);
     this.levelAnnouncement.setScale(0.5);
@@ -666,10 +490,6 @@ export class GameScene extends Phaser.Scene {
           alpha: 0,
           delay: 1200,
           duration: 500,
-          onComplete: () => {
-            // Resume gameplay after text fades
-            this.isLevelTransition = false;
-          },
         });
       },
     });
@@ -691,9 +511,6 @@ export class GameScene extends Phaser.Scene {
   private gameOver(): void {
     this.isGameOver = true;
     this.scoreManager.saveHighScore();
-    const audio = AudioManager.getInstance();
-    audio.stopMusic();
-    audio.playGameOver();
 
     // Brief delay then transition
     this.time.delayedCall(600, () => {

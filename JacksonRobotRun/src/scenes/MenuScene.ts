@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, COLORS } from '../config/GameConfig';
+import { GAME_WIDTH, GAME_HEIGHT } from '../config/GameConfig';
 import { ScoreManager } from '../managers/ScoreManager';
-import { AudioManager } from '../managers/AudioManager';
+import { ThemeManager } from '../managers/ThemeManager';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -9,25 +9,28 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create(): void {
+    const theme = ThemeManager.getTheme();
+    const c = theme.colors;
+
     // Background
-    this.cameras.main.setBackgroundColor(COLORS.sky);
+    this.cameras.main.setBackgroundColor(c.sky);
 
     // Ground area
     const ground = this.add.graphics();
-    ground.fillStyle(COLORS.ground, 1);
+    ground.fillStyle(c.ground, 1);
     ground.fillRect(0, GAME_HEIGHT * 0.65, GAME_WIDTH, GAME_HEIGHT * 0.35);
 
     // Road lines on ground
-    ground.lineStyle(2, COLORS.lane_divider, 0.3);
+    ground.lineStyle(2, c.laneLines, 0.3);
     for (let i = 0; i < 5; i++) {
       const y = GAME_HEIGHT * 0.7 + i * 30;
       ground.lineBetween(GAME_WIDTH * 0.1, y, GAME_WIDTH * 0.9, y);
     }
 
-    // Title
-    const title = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT * 0.15, 'JACKSON\nROBOT RUN', {
+    // Title - uses theme name
+    const title = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT * 0.12, `JACKSON\n${theme.name.toUpperCase()}`, {
       fontFamily: 'Arial Black, Arial',
-      fontSize: '48px',
+      fontSize: '44px',
       color: '#FFFFFF',
       stroke: '#1a1a2e',
       strokeThickness: 8,
@@ -36,8 +39,8 @@ export class MenuScene extends Phaser.Scene {
     });
     title.setOrigin(0.5, 0.5);
 
-    // Subtitle
-    const subtitle = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT * 0.32, 'Dodge the robots. Collect the bots.', {
+    // Subtitle - theme-specific tagline
+    const subtitle = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT * 0.28, theme.subtitle, {
       fontFamily: 'Arial',
       fontSize: '16px',
       color: '#FFFFFF',
@@ -47,59 +50,25 @@ export class MenuScene extends Phaser.Scene {
     subtitle.setOrigin(0.5, 0.5);
 
     // Play button
-    const playBtn = this.add.graphics();
-    const btnX = GAME_WIDTH / 2 - 100;
-    const btnY = GAME_HEIGHT * 0.45;
-    playBtn.fillStyle(0x27AE60, 1);
-    playBtn.fillRoundedRect(btnX, btnY, 200, 60, 12);
-    playBtn.lineStyle(3, 0xFFFFFF, 0.8);
-    playBtn.strokeRoundedRect(btnX, btnY, 200, 60, 12);
+    this.createButton(
+      GAME_WIDTH / 2, GAME_HEIGHT * 0.40,
+      'PLAY', 0x27AE60,
+      () => this.scene.start('GameScene'),
+      200, 60, '28px'
+    );
 
-    const playText = this.add.text(GAME_WIDTH / 2, btnY + 30, 'PLAY', {
-      fontFamily: 'Arial Black, Arial',
-      fontSize: '28px',
-      color: '#FFFFFF',
-    });
-    playText.setOrigin(0.5, 0.5);
-
-    // Make play button interactive
-    const hitArea = this.add.zone(GAME_WIDTH / 2, btnY + 30, 200, 60).setInteractive();
-    hitArea.on('pointerdown', () => {
-      const audio = AudioManager.getInstance();
-      audio.unlock();
-      audio.playClick();
-      this.tweens.add({
-        targets: [playText],
-        scaleX: 0.9,
-        scaleY: 0.9,
-        duration: 80,
-        yoyo: true,
-        onComplete: () => {
-          this.scene.start('GameScene');
-        },
-      });
-    });
-
-    hitArea.on('pointerover', () => {
-      playBtn.clear();
-      playBtn.fillStyle(0x2ECC71, 1);
-      playBtn.fillRoundedRect(btnX, btnY, 200, 60, 12);
-      playBtn.lineStyle(3, 0xFFFFFF, 1);
-      playBtn.strokeRoundedRect(btnX, btnY, 200, 60, 12);
-    });
-
-    hitArea.on('pointerout', () => {
-      playBtn.clear();
-      playBtn.fillStyle(0x27AE60, 1);
-      playBtn.fillRoundedRect(btnX, btnY, 200, 60, 12);
-      playBtn.lineStyle(3, 0xFFFFFF, 0.8);
-      playBtn.strokeRoundedRect(btnX, btnY, 200, 60, 12);
-    });
+    // Customize button
+    this.createButton(
+      GAME_WIDTH / 2, GAME_HEIGHT * 0.52,
+      'CUSTOMIZE', c.uiAccent,
+      () => this.scene.start('CustomizeScene'),
+      200, 48, '20px'
+    );
 
     // High score display
     const highScore = ScoreManager.getHighScore();
     if (highScore > 0) {
-      this.add.text(GAME_WIDTH / 2, GAME_HEIGHT * 0.58, `High Score: ${highScore}`, {
+      this.add.text(GAME_WIDTH / 2, GAME_HEIGHT * 0.62, `High Score: ${highScore}`, {
         fontFamily: 'Arial',
         fontSize: '20px',
         color: '#FFD700',
@@ -109,7 +78,7 @@ export class MenuScene extends Phaser.Scene {
     }
 
     // Controls help
-    const controlsText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT * 0.92,
+    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT * 0.92,
       'Swipe or Arrow Keys to move\nSwipe Up / Space to jump\nSwipe Down / S to slide', {
       fontFamily: 'Arial',
       fontSize: '12px',
@@ -117,29 +86,11 @@ export class MenuScene extends Phaser.Scene {
       stroke: '#000000',
       strokeThickness: 2,
       align: 'center',
-    });
-    controlsText.setOrigin(0.5, 0.5);
+    }).setOrigin(0.5, 0.5);
 
-    // Sound toggle button
-    const audio = AudioManager.getInstance();
-    const soundBtn = this.add.text(GAME_WIDTH - 15, GAME_HEIGHT - 15, audio.isMuted() ? 'SOUND: OFF' : 'SOUND: ON', {
-      fontFamily: 'Arial',
-      fontSize: '14px',
-      color: '#FFFFFF',
-      stroke: '#000000',
-      strokeThickness: 2,
-    });
-    soundBtn.setOrigin(1, 1);
-    soundBtn.setInteractive({ useHandCursor: true });
-    soundBtn.on('pointerdown', () => {
-      audio.unlock();
-      const muted = audio.toggleMute();
-      soundBtn.setText(muted ? 'SOUND: OFF' : 'SOUND: ON');
-    });
-
-    // Animated Jackson character on the menu
-    const jackson = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT * 0.75, 'player');
-    jackson.setDisplaySize(96, 144); // Larger display on menu for visibility
+    // Animated character on the menu
+    const jackson = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT * 0.76, 'player');
+    jackson.setDisplaySize(96, 144);
     this.tweens.add({
       targets: jackson,
       y: jackson.y - 8,
@@ -149,11 +100,58 @@ export class MenuScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
 
-    // Floating robot collectibles in background
-    this.createFloatingRobots();
+    // Floating collectibles in background
+    this.createFloatingCollectibles();
   }
 
-  private createFloatingRobots(): void {
+  private createButton(
+    x: number, y: number, label: string, color: number,
+    callback: () => void, w = 200, h = 60, fontSize = '28px'
+  ): void {
+    const btn = this.add.graphics();
+    const btnX = x - w / 2;
+    const btnY = y - h / 2;
+    btn.fillStyle(color, 1);
+    btn.fillRoundedRect(btnX, btnY, w, h, 12);
+    btn.lineStyle(3, 0xFFFFFF, 0.8);
+    btn.strokeRoundedRect(btnX, btnY, w, h, 12);
+
+    const text = this.add.text(x, y, label, {
+      fontFamily: 'Arial Black, Arial',
+      fontSize,
+      color: '#FFFFFF',
+    }).setOrigin(0.5, 0.5);
+
+    const hitArea = this.add.zone(x, y, w, h).setInteractive({ useHandCursor: true });
+    hitArea.on('pointerdown', () => {
+      this.tweens.add({
+        targets: [text],
+        scaleX: 0.9,
+        scaleY: 0.9,
+        duration: 80,
+        yoyo: true,
+        onComplete: callback,
+      });
+    });
+
+    hitArea.on('pointerover', () => {
+      btn.clear();
+      btn.fillStyle(Phaser.Display.Color.IntegerToColor(color).brighten(20).color, 1);
+      btn.fillRoundedRect(btnX, btnY, w, h, 12);
+      btn.lineStyle(3, 0xFFFFFF, 1);
+      btn.strokeRoundedRect(btnX, btnY, w, h, 12);
+    });
+
+    hitArea.on('pointerout', () => {
+      btn.clear();
+      btn.fillStyle(color, 1);
+      btn.fillRoundedRect(btnX, btnY, w, h, 12);
+      btn.lineStyle(3, 0xFFFFFF, 0.8);
+      btn.strokeRoundedRect(btnX, btnY, w, h, 12);
+    });
+  }
+
+  private createFloatingCollectibles(): void {
     const types = ['collect-bronze', 'collect-silver', 'collect-gold'];
     for (let i = 0; i < 5; i++) {
       const x = Phaser.Math.Between(40, GAME_WIDTH - 40);
