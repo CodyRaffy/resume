@@ -3,10 +3,26 @@ import { GAME_WIDTH, GAME_HEIGHT, PLAYER_WIDTH, PLAYER_HEIGHT } from '../config/
 import { ThemeManager } from '../managers/ThemeManager';
 import { getAllThemes, ThemeDefinition } from '../config/ThemeConfig';
 
+// Capacitor camera types - dynamically imported so it doesn't break on web
+interface CapCamera {
+  getPhoto(options: {
+    resultType: string;
+    source: string;
+    quality: number;
+    width?: number;
+    height?: number;
+    allowEditing?: boolean;
+  }): Promise<{ dataUrl?: string; base64String?: string }>;
+}
+
 /**
  * Customization screen where users can:
  * 1. Pick a theme (robots, soccer, space, etc.)
  * 2. Upload their own photos for the character sprites
+ *
+ * Supports both:
+ * - Native camera/gallery via @capacitor/camera (on mobile)
+ * - File picker with optional camera capture (on web)
  */
 export class CustomizeScene extends Phaser.Scene {
   private themeCards: Phaser.GameObjects.Container[] = [];
@@ -14,6 +30,7 @@ export class CustomizeScene extends Phaser.Scene {
   private scrollY: number = 0;
   private characterPreview!: Phaser.GameObjects.Image;
   private hasCustomLabel!: Phaser.GameObjects.Text;
+  private isCapacitorAvailable: boolean = false;
 
   constructor() {
     super({ key: 'CustomizeScene' });
@@ -22,6 +39,9 @@ export class CustomizeScene extends Phaser.Scene {
   create(): void {
     this.scrollY = 0;
     this.themeCards = [];
+
+    // Detect if running inside Capacitor (native mobile app)
+    this.isCapacitorAvailable = !!(window as any).Capacitor?.isNativePlatform?.();
 
     const bg = this.add.graphics();
     bg.fillStyle(0x1a1a2e, 1);
@@ -76,13 +96,30 @@ export class CustomizeScene extends Phaser.Scene {
     }).setOrigin(0.5, 0.5);
     this.updateCustomLabel();
 
-    // Upload photo button
-    this.createButton(GAME_WIDTH / 2, 435, 'Upload Photo', 0x3498DB, () => {
-      this.openPhotoUpload();
-    });
+    // --- Photo buttons: side by side ---
+    const btnY = 430;
+    const btnGap = 8;
+    const btnW = 150;
+    const btnH = 44;
 
-    // Upload instructions
-    this.add.text(GAME_WIDTH / 2, 480, 'Upload a photo of yourself!\nBackground will be auto-removed.', {
+    // Take Photo button (camera)
+    this.createButton(
+      GAME_WIDTH / 2 - btnW / 2 - btnGap / 2, btnY,
+      'Take Photo', 0x8E44AD,
+      () => this.getPhoto('camera'),
+      btnW, btnH, '14px'
+    );
+
+    // Choose from Gallery button (file picker / photo library)
+    this.createButton(
+      GAME_WIDTH / 2 + btnW / 2 + btnGap / 2, btnY,
+      'From Gallery', 0x3498DB,
+      () => this.getPhoto('gallery'),
+      btnW, btnH, '14px'
+    );
+
+    // Instructions
+    this.add.text(GAME_WIDTH / 2, 470, 'Use a photo of yourself as the character!', {
       fontFamily: 'Arial',
       fontSize: '11px',
       color: '#666688',
@@ -91,12 +128,12 @@ export class CustomizeScene extends Phaser.Scene {
 
     // Clear custom sprites button (only if custom sprites exist)
     if (ThemeManager.hasCustomSprites()) {
-      this.createButton(GAME_WIDTH / 2, 520, 'Reset to Default', 0x884444, () => {
+      this.createButton(GAME_WIDTH / 2, 510, 'Reset to Default', 0x884444, () => {
         ThemeManager.clearCustomSprites();
         this.updateCustomLabel();
         // Restart to regenerate textures
         this.scene.start('BootScene');
-      }, 140, 36, '14px');
+      }, 160, 36, '14px');
     }
 
     // --- BOTTOM BUTTONS ---
@@ -225,15 +262,56 @@ export class CustomizeScene extends Phaser.Scene {
   }
 
   /**
-   * Opens a file input to let the user upload a photo.
-   * The photo is processed (resized, centered) and saved as the run sprite.
-   * For now this uses a single photo for all poses (run/jump/slide).
-   * In a Capacitor app, this would use @capacitor/camera instead.
+   * Get a photo from either the camera or gallery.
+   * Uses @capacitor/camera on native mobile, falls back to HTML file input on web.
    */
-  private openPhotoUpload(): void {
+  private getPhoto(source: 'camera' | 'gallery'): void {
+    if (this.isCapacitorAvailable) {
+      this.getPhotoCapacitor(source);
+    } else {
+      this.getPhotoWeb(source);
+    }
+  }
+
+  /**
+   * Native mobile path: use @capacitor/camera plugin.
+   * Dynamically imports the plugin so it doesn't break when running on web.
+   */
+  private async getPhotoCapacitor(source: 'camera' | 'gallery'): Promise<void> {
+    try {
+      const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera');
+      const photo = await Camera.getPhoto({
+        resultType: CameraResultType.DataUrl,
+        source: source === 'camera' ? CameraSource.Camera : CameraSource.Photos,
+        quality: 90,
+        width: 512,
+        height: 768,
+        allowEditing: true,
+      });
+
+      if (photo.dataUrl) {
+        this.processUploadedPhoto(photo.dataUrl);
+      }
+    } catch (err: any) {
+      // User cancelled or permission denied - that's okay
+      if (err?.message && !err.message.includes('cancel')) {
+        console.error('Camera error:', err);
+      }
+    }
+  }
+
+  /**
+   * Web fallback: use an HTML file input.
+   * For "camera" source, adds the capture attribute so mobile browsers
+   * open the camera directly. For "gallery", opens the normal file picker.
+   */
+  private getPhotoWeb(source: 'camera' | 'gallery'): void {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
+    if (source === 'camera') {
+      input.setAttribute('capture', 'environment');
+    }
     input.style.display = 'none';
     document.body.appendChild(input);
 
