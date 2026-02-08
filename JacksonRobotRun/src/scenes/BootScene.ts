@@ -105,6 +105,8 @@ export class BootScene extends Phaser.Scene {
     this.createRobotTexture('robot-tall', 48, 100, 0xC0392B, 'tall');
     this.createRobotTexture('robot-lane', 56, 72, 0xE74C3C, 'medium');
     this.createRobotTexture('robot-flying', 56, 48, 0x9B59B6, 'flying');
+    this.createPlatformTexture('robot-platform', 64, 36);
+    this.createBarTexture('robot-bar', 72, 20);
   }
 
   private createCollectibleTextures(): void {
@@ -216,6 +218,84 @@ export class BootScene extends Phaser.Scene {
     // Outline
     g.lineStyle(2, 0xFFFFFF, 0.4);
     g.strokeRoundedRect(4, h * 0.2, w - 8, h * 0.65, 6);
+
+    g.generateTexture(key, w, h);
+    g.destroy();
+  }
+
+  private createBarTexture(key: string, w: number, h: number): void {
+    const g = this.add.graphics();
+
+    // Support pillars on each side
+    g.fillStyle(0x7F8C8D, 1);
+    g.fillRect(2, 0, 6, h);
+    g.fillRect(w - 8, 0, 6, h);
+
+    // Main horizontal bar (orange/yellow industrial pipe)
+    g.fillStyle(0xF39C12, 1);
+    g.fillRoundedRect(0, h * 0.2, w, h * 0.5, 3);
+
+    // Hazard stripes
+    g.lineStyle(2, 0x000000, 0.4);
+    for (let sx = 6; sx < w - 6; sx += 10) {
+      g.lineBetween(sx, h * 0.2, sx + 5, h * 0.7);
+    }
+
+    // Highlight on top of bar
+    g.fillStyle(0xF1C40F, 0.6);
+    g.fillRect(8, h * 0.2, w - 16, 3);
+
+    // Down arrow indicators (duck hint)
+    g.fillStyle(0xFFFFFF, 0.7);
+    const arrowX = w / 2;
+    const arrowY = h * 0.55;
+    g.fillTriangle(arrowX, arrowY + 4, arrowX - 5, arrowY - 2, arrowX + 5, arrowY - 2);
+
+    // Bolts on pillars
+    g.fillStyle(0x95A5A6, 1);
+    g.fillCircle(5, 3, 2);
+    g.fillCircle(5, h - 3, 2);
+    g.fillCircle(w - 5, 3, 2);
+    g.fillCircle(w - 5, h - 3, 2);
+
+    g.generateTexture(key, w, h);
+    g.destroy();
+  }
+
+  private createPlatformTexture(key: string, w: number, h: number): void {
+    const g = this.add.graphics();
+    const color = 0x27AE60;
+
+    // Main crate body
+    g.fillStyle(color, 1);
+    g.fillRoundedRect(2, 4, w - 4, h - 4, 4);
+
+    // Top surface (lighter, flat top you can land on)
+    g.fillStyle(0x2ECC71, 1);
+    g.fillRect(2, 4, w - 4, 8);
+
+    // Metal frame edges
+    g.lineStyle(2, 0x1E8449, 1);
+    g.strokeRoundedRect(2, 4, w - 4, h - 4, 4);
+
+    // Cross brace pattern (like a cargo crate)
+    g.lineStyle(1.5, 0x1E8449, 0.6);
+    g.lineBetween(2, 4, w - 2, h);
+    g.lineBetween(w - 2, 4, 2, h);
+
+    // Upward arrow indicator (jump hint)
+    g.fillStyle(0xFFFFFF, 0.7);
+    const arrowX = w / 2;
+    const arrowY = h * 0.35;
+    g.fillTriangle(arrowX, arrowY - 6, arrowX - 6, arrowY + 2, arrowX + 6, arrowY + 2);
+    g.fillRect(arrowX - 2.5, arrowY + 2, 5, 6);
+
+    // Corner bolts
+    g.fillStyle(0x85929E, 1);
+    g.fillCircle(8, 10, 2.5);
+    g.fillCircle(w - 8, 10, 2.5);
+    g.fillCircle(8, h - 4, 2.5);
+    g.fillCircle(w - 8, h - 4, 2.5);
 
     g.generateTexture(key, w, h);
     g.destroy();

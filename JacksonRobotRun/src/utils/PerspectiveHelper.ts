@@ -20,7 +20,7 @@ export function getScale(depth_z: number): number {
 
 export function getLaneX(lane: number, depth_z: number): number {
   const perspT = depth_z * depth_z;
-  const laneSpread = lerp(0.05, 1, perspT);
+  const laneSpread = lerp(0.4, 1, perspT);
   const laneOffset = (LANE_POSITIONS[lane] - VANISHING_POINT_X) * laneSpread;
   return VANISHING_POINT_X + laneOffset;
 }

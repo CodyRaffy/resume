@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import {
   GAME_WIDTH, GAME_HEIGHT, LANE_POSITIONS, DEFAULT_LANE,
   HORIZON_Y, GROUND_Y, PLAYER_Y, STARTING_LIVES,
-  COLORS, DISTANCE_POINTS_PER_TICK,
+  COLORS, DISTANCE_POINTS_PER_TICK, PLATFORM_JUMP_POINTS, BAR_SLIDE_POINTS,
 } from '../config/GameConfig';
 import { Player } from '../objects/Player';
 import { SpawnManager } from '../managers/SpawnManager';
@@ -141,13 +141,32 @@ export class GameScene extends Phaser.Scene {
       obstacle.updatePosition(speed, delta);
 
       // Only check collision when obstacle is near the player
-      if (!this.isInvincible
-        && obstacle.depth_z >= COLLISION_Z_MIN
+      if (obstacle.depth_z >= COLLISION_Z_MIN
         && obstacle.depth_z <= COLLISION_Z_MAX
-        && this.checkPlayerVsObstacle(obstacle)
       ) {
-        this.onObstacleHit(obstacle);
-        continue; // obstacle destroyed in onObstacleHit
+        // Platforms: jumping on them awards points
+        if (obstacle.obstacleType === 'platform'
+          && this.player.playerState === 'jumping'
+          && this.checkPlayerVsObstacle(obstacle)
+        ) {
+          this.onPlatformLand(obstacle);
+          continue;
+        }
+
+        // Bars: sliding under them awards points
+        if (obstacle.obstacleType === 'bar'
+          && this.player.playerState === 'sliding'
+          && this.checkPlayerVsObstacle(obstacle)
+        ) {
+          this.onBarSlide(obstacle);
+          continue;
+        }
+
+        // Normal obstacle collision
+        if (!this.isInvincible && this.checkPlayerVsObstacle(obstacle)) {
+          this.onObstacleHit(obstacle);
+          continue;
+        }
       }
 
       // Remove if past the camera
@@ -409,6 +428,84 @@ export class GameScene extends Phaser.Scene {
     if (this.lives <= 0) {
       this.gameOver();
     }
+  }
+
+  onPlatformLand(platform: Obstacle): void {
+    const earned = this.scoreManager.addCollectible(PLATFORM_JUMP_POINTS);
+
+    // Floating score text
+    const floatText = this.add.text(platform.x, platform.y, `+${earned}`, {
+      fontFamily: 'Arial Black',
+      fontSize: '22px',
+      color: '#2ECC71',
+      stroke: '#000000',
+      strokeThickness: 4,
+    }).setOrigin(0.5, 0.5).setDepth(90);
+
+    this.tweens.add({
+      targets: floatText,
+      y: floatText.y - 80,
+      alpha: 0,
+      scaleX: 1.4,
+      scaleY: 1.4,
+      duration: 900,
+      ease: 'Sine.easeOut',
+      onComplete: () => floatText.destroy(),
+    });
+
+    // Green particle burst
+    const particles = this.add.particles(platform.x, platform.y, 'particle', {
+      speed: { min: 40, max: 120 },
+      scale: { start: 1.2, end: 0 },
+      lifespan: 450,
+      quantity: 10,
+      tint: 0x2ECC71,
+      emitting: false,
+    });
+    particles.setDepth(85);
+    particles.explode();
+    this.time.delayedCall(500, () => particles.destroy());
+
+    platform.destroy();
+  }
+
+  onBarSlide(bar: Obstacle): void {
+    const earned = this.scoreManager.addCollectible(BAR_SLIDE_POINTS);
+
+    // Floating score text
+    const floatText = this.add.text(bar.x, bar.y, `+${earned}`, {
+      fontFamily: 'Arial Black',
+      fontSize: '22px',
+      color: '#F39C12',
+      stroke: '#000000',
+      strokeThickness: 4,
+    }).setOrigin(0.5, 0.5).setDepth(90);
+
+    this.tweens.add({
+      targets: floatText,
+      y: floatText.y - 80,
+      alpha: 0,
+      scaleX: 1.4,
+      scaleY: 1.4,
+      duration: 900,
+      ease: 'Sine.easeOut',
+      onComplete: () => floatText.destroy(),
+    });
+
+    // Orange particle burst
+    const particles = this.add.particles(bar.x, bar.y, 'particle', {
+      speed: { min: 40, max: 120 },
+      scale: { start: 1.2, end: 0 },
+      lifespan: 450,
+      quantity: 10,
+      tint: 0xF39C12,
+      emitting: false,
+    });
+    particles.setDepth(85);
+    particles.explode();
+    this.time.delayedCall(500, () => particles.destroy());
+
+    bar.destroy();
   }
 
   onCollectiblePickup(collectible: Collectible): void {

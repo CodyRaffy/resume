@@ -11,6 +11,8 @@ const OBSTACLE_TEXTURES: Record<ObstacleType, string> = {
   laneBlocker: 'robot-lane',
   doubleBlocker: 'robot-lane',
   flying: 'robot-flying',
+  platform: 'robot-platform',
+  bar: 'robot-bar',
 };
 
 export class Obstacle extends Phaser.GameObjects.Sprite {
@@ -60,7 +62,7 @@ export class Obstacle extends Phaser.GameObjects.Sprite {
     const y = Phaser.Math.Linear(HORIZON_Y, GROUND_Y, perspT);
 
     // Lane spread: lanes converge at the vanishing point
-    const laneSpread = Phaser.Math.Linear(0.05, 1, perspT);
+    const laneSpread = Phaser.Math.Linear(0.4, 1, perspT);
     const laneOffset = (LANE_POSITIONS[this.lane] - VANISHING_POINT_X) * laneSpread;
     const x = VANISHING_POINT_X + laneOffset;
 
@@ -74,6 +76,11 @@ export class Obstacle extends Phaser.GameObjects.Sprite {
     // Flying robots hover higher
     if (this.obstacleType === 'flying') {
       this.y -= 50 * scale;
+    }
+
+    // Bars sit at head height (duck under them)
+    if (this.obstacleType === 'bar') {
+      this.y -= 40 * scale;
     }
 
     // Update second sprite for double blocker

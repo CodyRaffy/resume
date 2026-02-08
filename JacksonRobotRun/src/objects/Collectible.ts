@@ -42,7 +42,7 @@ export class Collectible extends Phaser.GameObjects.Sprite {
     const scale = Phaser.Math.Linear(MIN_SCALE, MAX_SCALE, perspT);
     const y = Phaser.Math.Linear(HORIZON_Y, GROUND_Y, perspT);
 
-    const laneSpread = Phaser.Math.Linear(0.05, 1, perspT);
+    const laneSpread = Phaser.Math.Linear(0.4, 1, perspT);
     const laneOffset = (LANE_POSITIONS[this.lane] - VANISHING_POINT_X) * laneSpread;
     const x = VANISHING_POINT_X + laneOffset;
 

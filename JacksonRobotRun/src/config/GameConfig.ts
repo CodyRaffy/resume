@@ -31,12 +31,12 @@ export const INVINCIBILITY_DURATION = 2000; // ms after crash
 // Gameplay
 export const STARTING_LIVES = 3;
 export const MAX_LIVES = 5;
-export const BASE_SPEED = 3;
-export const SPEED_INCREMENT = 0.005;
+export const BASE_SPEED = 1;
+export const SPEED_INCREMENT = 0.002;
 
 // Spawning
-export const BASE_SPAWN_INTERVAL = 2000; // ms
-export const MIN_SPAWN_INTERVAL = 600; // ms
+export const BASE_SPAWN_INTERVAL = 1200; // ms
+export const MIN_SPAWN_INTERVAL = 400; // ms
 export const COLLECTIBLE_CHANCE = 0.35; // 35% chance a spawn is a collectible
 
 // Scoring
@@ -56,6 +56,12 @@ export const COLLECTIBLE_POINTS = {
   special: 100,
 };
 
+// Bonus points for jumping on a platform
+export const PLATFORM_JUMP_POINTS = 30;
+
+// Bonus points for sliding under a bar
+export const BAR_SLIDE_POINTS = 30;
+
 // Swipe detection
 export const SWIPE_THRESHOLD = 30; // minimum pixels for a swipe
 
@@ -69,6 +75,8 @@ export const COLORS = {
   obstacle_tall: 0xC0392B,
   obstacle_lane: 0xE74C3C,
   obstacle_flying: 0x9B59B6,
+  obstacle_platform: 0x27AE60,
+  obstacle_bar: 0xF39C12,
   collectible_bronze: 0xCD7F32,
   collectible_silver: 0xC0C0C0,
   collectible_gold: 0xFFD700,
