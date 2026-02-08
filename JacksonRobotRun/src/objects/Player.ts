@@ -27,6 +27,11 @@ export class Player extends Phaser.GameObjects.Sprite {
 
     // Ensure consistent display size regardless of source image dimensions
     this.setDisplaySize(PLAYER_WIDTH, PLAYER_HEIGHT);
+
+    // Play run animation if available
+    if (scene.anims.exists('player-run')) {
+      this.play('player-run');
+    }
   }
 
   moveLeft(): void {
@@ -47,6 +52,7 @@ export class Player extends Phaser.GameObjects.Sprite {
     if (this.playerState !== 'running') return;
     this.playerState = 'jumping';
     AudioManager.getInstance().playJump();
+    this.stop();
     this.setTexture('player-jump');
     this.setDisplaySize(PLAYER_WIDTH, PLAYER_HEIGHT);
 
@@ -63,8 +69,7 @@ export class Player extends Phaser.GameObjects.Sprite {
           ease: 'Sine.easeIn',
           onComplete: () => {
             this.playerState = 'running';
-            this.setTexture('player');
-            this.setDisplaySize(PLAYER_WIDTH, PLAYER_HEIGHT);
+            this.resumeRun();
           },
         });
       },
@@ -75,6 +80,7 @@ export class Player extends Phaser.GameObjects.Sprite {
     if (this.playerState !== 'running') return;
     this.playerState = 'sliding';
     AudioManager.getInstance().playSlide();
+    this.stop();
     this.setTexture('player-slide');
     this.setDisplaySize(80, this.slideHeight);
 
@@ -83,8 +89,7 @@ export class Player extends Phaser.GameObjects.Sprite {
 
     this.scene.time.delayedCall(SLIDE_DURATION, () => {
       this.playerState = 'running';
-      this.setTexture('player');
-      this.setDisplaySize(PLAYER_WIDTH, PLAYER_HEIGHT);
+      this.resumeRun();
       this.y = this.baseY;
     });
   }
@@ -123,6 +128,15 @@ export class Player extends Phaser.GameObjects.Sprite {
       w,
       h
     );
+  }
+
+  private resumeRun(): void {
+    if (this.scene.anims.exists('player-run')) {
+      this.play('player-run');
+    } else {
+      this.setTexture('player');
+    }
+    this.setDisplaySize(PLAYER_WIDTH, PLAYER_HEIGHT);
   }
 
   private switchLane(): void {

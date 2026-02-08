@@ -9,7 +9,8 @@
       "Bash(dir:*)",
       "Bash(gh api:*)",
       "Bash(git -C \"C:\\\\Code\\\\resume\" log master --oneline -5)",
-      "Bash(npx netlify-cli:*)"
+      "Bash(npx netlify-cli:*)",
+      "Bash(node scripts/generate-sprites.js:*)"
     ]
   }
 }
