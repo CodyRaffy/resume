@@ -124,8 +124,8 @@ export class BootScene extends Phaser.Scene {
 
   private createObstacleTextures(): void {
     this.createRobotTexture('robot-ground', 80, 56, 0xE74C3C, 'short');
-    this.createRobotTexture('robot-tall', 76, 180, 0xC0392B, 'tall');
-    this.createRobotTexture('robot-lane', 80, 80, 0xE74C3C, 'medium');
+    this.createWallTexture('robot-tall', 120, 160);
+    this.createRobotTexture('robot-lane', 88, 110, 0xE74C3C, 'medium');
     this.createRobotTexture('robot-flying', 72, 56, 0x9B59B6, 'flying');
     this.createPlatformTexture('robot-platform', 64, 36);
     this.createBarTexture('robot-bar', 100, 24);
@@ -257,28 +257,26 @@ export class BootScene extends Phaser.Scene {
   }
 
   private createRobotTexture(key: string, w: number, h: number, color: number, variant: string): void {
-    const drawH = variant === 'tall' ? h + 12 : h; // Extra space for spikes on tall
-    const yOff = variant === 'tall' ? 12 : 0; // Offset body down to make room for spikes
     const g = this.add.graphics();
 
     // Body
     g.fillStyle(color, 1);
-    g.fillRoundedRect(4, yOff + h * 0.2, w - 8, h * 0.65, 6);
+    g.fillRoundedRect(4, h * 0.2, w - 8, h * 0.65, 6);
 
     // Head
     g.fillStyle(color, 1);
-    g.fillRoundedRect(w * 0.2, yOff, w * 0.6, h * 0.3, 4);
+    g.fillRoundedRect(w * 0.2, 0, w * 0.6, h * 0.3, 4);
 
     // Evil eyes (scaled for larger robots)
     const eyeSize = Math.max(4, w * 0.07);
     g.fillStyle(0xFF0000, 1);
-    g.fillCircle(w * 0.35, yOff + h * 0.12, eyeSize);
-    g.fillCircle(w * 0.65, yOff + h * 0.12, eyeSize);
+    g.fillCircle(w * 0.35, h * 0.12, eyeSize);
+    g.fillCircle(w * 0.65, h * 0.12, eyeSize);
 
     // Angry brow
     g.lineStyle(2, 0x333333, 1);
-    g.lineBetween(w * 0.22, yOff + h * 0.06, w * 0.42, yOff + h * 0.1);
-    g.lineBetween(w * 0.78, yOff + h * 0.06, w * 0.58, yOff + h * 0.1);
+    g.lineBetween(w * 0.22, h * 0.06, w * 0.42, h * 0.1);
+    g.lineBetween(w * 0.78, h * 0.06, w * 0.58, h * 0.1);
 
     if (variant === 'flying') {
       // Wings
@@ -287,29 +285,11 @@ export class BootScene extends Phaser.Scene {
       g.fillTriangle(w, h * 0.35, w * 0.85, h * 0.25, w * 0.85, h * 0.45);
     }
 
-    if (variant === 'tall') {
-      // Spikes on top - clearly cannot jump over
-      g.fillStyle(0xFFFF00, 1);
-      const spikeCount = 5;
-      const spikeW = (w * 0.6) / spikeCount;
-      for (let i = 0; i < spikeCount; i++) {
-        const sx = w * 0.2 + i * spikeW;
-        g.fillTriangle(sx, yOff, sx + spikeW / 2, yOff - 10, sx + spikeW, yOff);
-      }
-
-      // Warning "X" on body
-      g.lineStyle(3, 0xFFFF00, 0.8);
-      const cx = w / 2;
-      const cy = yOff + h * 0.55;
-      g.lineBetween(cx - 10, cy - 10, cx + 10, cy + 10);
-      g.lineBetween(cx + 10, cy - 10, cx - 10, cy + 10);
-    }
-
     if (variant === 'short') {
       // Up arrow on body - hint that you can jump over
       g.fillStyle(0xFFFFFF, 0.6);
       const ax = w / 2;
-      const ay = yOff + h * 0.4;
+      const ay = h * 0.4;
       g.fillTriangle(ax, ay - 6, ax - 7, ay + 2, ax + 7, ay + 2);
       g.fillRect(ax - 3, ay + 2, 6, 8);
     }
@@ -317,15 +297,15 @@ export class BootScene extends Phaser.Scene {
     // Danger stripes on body
     g.lineStyle(2, 0x000000, 0.3);
     for (let i = 0; i < 3; i++) {
-      const sy = yOff + h * 0.4 + i * (h * 0.12);
+      const sy = h * 0.4 + i * (h * 0.12);
       g.lineBetween(8, sy, w - 8, sy);
     }
 
     // Outline
     g.lineStyle(2, 0xFFFFFF, 0.4);
-    g.strokeRoundedRect(4, yOff + h * 0.2, w - 8, h * 0.65, 6);
+    g.strokeRoundedRect(4, h * 0.2, w - 8, h * 0.65, 6);
 
-    g.generateTexture(key, w, drawH);
+    g.generateTexture(key, w, h);
     g.destroy();
   }
 
@@ -365,6 +345,67 @@ export class BootScene extends Phaser.Scene {
     g.fillCircle(w - 5, h - 3, 2);
 
     g.generateTexture(key, w, h);
+    g.destroy();
+  }
+
+  private createWallTexture(key: string, w: number, h: number): void {
+    const spikeH = 14;
+    const totalH = h + spikeH;
+    const g = this.add.graphics();
+
+    // Main wall body
+    g.fillStyle(0x8B0000, 1);
+    g.fillRect(2, spikeH, w - 4, h);
+
+    // Brick pattern
+    const brickH = 18;
+    const brickW = 24;
+    g.lineStyle(1.5, 0x660000, 0.6);
+    let row = 0;
+    for (let by = spikeH; by < spikeH + h; by += brickH) {
+      const offset = (row % 2 === 0) ? 0 : brickW / 2;
+      // Horizontal mortar line
+      g.lineBetween(2, by, w - 2, by);
+      // Vertical mortar lines
+      for (let bx = offset + 2; bx < w - 2; bx += brickW) {
+        g.lineBetween(bx, by, bx, Math.min(by + brickH, spikeH + h));
+      }
+      row++;
+    }
+
+    // Darker top edge
+    g.fillStyle(0x700000, 1);
+    g.fillRect(2, spikeH, w - 4, 4);
+
+    // Spikes on top
+    g.fillStyle(0xFFCC00, 1);
+    const spikeCount = 7;
+    const spikeSpacing = (w - 8) / spikeCount;
+    for (let i = 0; i < spikeCount; i++) {
+      const sx = 4 + i * spikeSpacing;
+      g.fillTriangle(sx, spikeH, sx + spikeSpacing / 2, 0, sx + spikeSpacing, spikeH);
+    }
+
+    // Warning stripe across middle
+    g.fillStyle(0xFFCC00, 0.3);
+    g.fillRect(2, spikeH + h * 0.4, w - 4, h * 0.12);
+    g.lineStyle(2, 0x000000, 0.3);
+    for (let sx = 2; sx < w - 2; sx += 14) {
+      g.lineBetween(sx, spikeH + h * 0.4, sx + 7, spikeH + h * 0.52);
+    }
+
+    // "X" warning symbol in center
+    g.lineStyle(3, 0xFFCC00, 0.7);
+    const cx = w / 2;
+    const cy = spikeH + h * 0.25;
+    g.lineBetween(cx - 12, cy - 12, cx + 12, cy + 12);
+    g.lineBetween(cx + 12, cy - 12, cx - 12, cy + 12);
+
+    // Outline
+    g.lineStyle(2, 0x550000, 1);
+    g.strokeRect(2, spikeH, w - 4, h);
+
+    g.generateTexture(key, w, totalH);
     g.destroy();
   }
 

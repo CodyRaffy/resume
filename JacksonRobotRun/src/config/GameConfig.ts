@@ -62,6 +62,9 @@ export const PLATFORM_JUMP_POINTS = 30;
 // Bonus points for sliding under a bar
 export const BAR_SLIDE_POINTS = 30;
 
+// Bonus points for ducking under tall/flying obstacles
+export const DUCK_BONUS_POINTS = 20;
+
 // Swipe detection
 export const SWIPE_THRESHOLD = 15; // minimum pixels for a swipe
 

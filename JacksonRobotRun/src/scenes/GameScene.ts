@@ -3,6 +3,7 @@ import {
   GAME_WIDTH, GAME_HEIGHT, LANE_POSITIONS, DEFAULT_LANE,
   HORIZON_Y, GROUND_Y, PLAYER_Y, STARTING_LIVES,
   COLORS, DISTANCE_POINTS_PER_TICK, PLATFORM_JUMP_POINTS, BAR_SLIDE_POINTS,
+  DUCK_BONUS_POINTS,
 } from '../config/GameConfig';
 import { Player } from '../objects/Player';
 import { SpawnManager } from '../managers/SpawnManager';
@@ -14,9 +15,8 @@ import { Collectible } from '../objects/Collectible';
 import { AudioManager } from '../managers/AudioManager';
 
 // Depth zone where collisions are checked (obstacle near the player).
-// Widened to prevent skipping at high speed + low framerate.
-const COLLISION_Z_MIN = 0.75;
-const COLLISION_Z_MAX = 1.10;
+const COLLISION_Z_MIN = 0.82;
+const COLLISION_Z_MAX = 1.0;
 
 export class GameScene extends Phaser.Scene {
   player!: Player;
@@ -33,6 +33,7 @@ export class GameScene extends Phaser.Scene {
   isGameOver: boolean = false;
   isPaused: boolean = false;
   isInvincible: boolean = false;
+  isLevelTransition: boolean = false;
 
   // HUD elements
   scoreText!: Phaser.GameObjects.Text;
@@ -56,6 +57,7 @@ export class GameScene extends Phaser.Scene {
     this.isGameOver = false;
     this.isPaused = false;
     this.isInvincible = false;
+    this.isLevelTransition = false;
     this.lives = STARTING_LIVES;
     this.groundLines = [];
     this.groundLinePositions = [];
@@ -138,6 +140,14 @@ export class GameScene extends Phaser.Scene {
     const currentLevel = this.levelManager.getCurrentLevel();
     const speed = this.levelManager.getCurrentSpeed();
 
+    // During level transition, only update player shadow and HUD — freeze everything else
+    if (this.isLevelTransition) {
+      this.playerShadow.x = this.player.x;
+      this.playerShadow.y = PLAYER_Y + 44;
+      this.updateHUD();
+      return;
+    }
+
     // Scrolling ground lines
     this.updateGround(speed, delta);
 
@@ -175,13 +185,24 @@ export class GameScene extends Phaser.Scene {
           continue;
         }
 
-        // Bars: sliding under them awards points
+        // Bars: sliding under them awards points (check lane, not bounds —
+        // the bar is elevated so bounds won't overlap with the sliding player)
         if (obstacle.obstacleType === 'bar'
           && this.player.playerState === 'sliding'
-          && this.checkPlayerVsObstacle(obstacle)
+          && this.player.currentLane === obstacle.lane
+          && !obstacle.duckBonusAwarded
         ) {
           this.onBarSlide(obstacle);
           continue;
+        }
+
+        // Tall/flying obstacles: ducking under them awards bonus points
+        if ((obstacle.obstacleType === 'tall' || obstacle.obstacleType === 'flying')
+          && this.player.playerState === 'sliding'
+          && this.player.currentLane === obstacle.lane
+          && !obstacle.duckBonusAwarded
+        ) {
+          this.onDuckUnder(obstacle);
         }
 
         // Normal obstacle collision
@@ -192,7 +213,7 @@ export class GameScene extends Phaser.Scene {
       }
 
       // Remove if past the camera
-      if (obstacle.depth_z > 1.15) {
+      if (obstacle.depth_z > 1.05) {
         obstaclesToDestroy.push(obstacle);
       }
     }
@@ -213,7 +234,7 @@ export class GameScene extends Phaser.Scene {
         continue;
       }
 
-      if (collectible.depth_z > 1.15) {
+      if (collectible.depth_z > 1.05) {
         collectiblesToDestroy.push(collectible);
       }
     }
@@ -495,6 +516,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   onBarSlide(bar: Obstacle): void {
+    bar.duckBonusAwarded = true;
     AudioManager.getInstance().playBarSlide();
     const earned = this.scoreManager.addCollectible(BAR_SLIDE_POINTS);
 
@@ -532,6 +554,45 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(500, () => particles.destroy());
 
     bar.destroy();
+  }
+
+  onDuckUnder(obstacle: Obstacle): void {
+    obstacle.duckBonusAwarded = true;
+    AudioManager.getInstance().playBarSlide();
+    const earned = this.scoreManager.addCollectible(DUCK_BONUS_POINTS);
+
+    // Floating score text
+    const floatText = this.add.text(obstacle.x, obstacle.y, `+${earned}`, {
+      fontFamily: 'Arial Black',
+      fontSize: '20px',
+      color: '#00BFFF',
+      stroke: '#000000',
+      strokeThickness: 4,
+    }).setOrigin(0.5, 0.5).setDepth(90);
+
+    this.tweens.add({
+      targets: floatText,
+      y: floatText.y - 70,
+      alpha: 0,
+      scaleX: 1.3,
+      scaleY: 1.3,
+      duration: 800,
+      ease: 'Sine.easeOut',
+      onComplete: () => floatText.destroy(),
+    });
+
+    // Cyan particle burst
+    const particles = this.add.particles(obstacle.x, obstacle.y, 'particle', {
+      speed: { min: 30, max: 100 },
+      scale: { start: 1, end: 0 },
+      lifespan: 400,
+      quantity: 8,
+      tint: 0x00BFFF,
+      emitting: false,
+    });
+    particles.setDepth(85);
+    particles.explode();
+    this.time.delayedCall(500, () => particles.destroy());
   }
 
   onCollectiblePickup(collectible: Collectible): void {
@@ -582,6 +643,13 @@ export class GameScene extends Phaser.Scene {
   // --- Level Announcement ---
 
   showLevelAnnouncement(levelName: string): void {
+    // Freeze obstacles and clear the field
+    this.isLevelTransition = true;
+
+    // Destroy all existing obstacles and collectibles
+    this.obstacles.getChildren().slice().forEach(o => o.destroy());
+    this.collectibles.getChildren().slice().forEach(c => c.destroy());
+
     this.levelAnnouncement.setText(`${levelName}!`);
     this.levelAnnouncement.setAlpha(1);
     this.levelAnnouncement.setScale(0.5);
@@ -598,6 +666,10 @@ export class GameScene extends Phaser.Scene {
           alpha: 0,
           delay: 1200,
           duration: 500,
+          onComplete: () => {
+            // Resume gameplay after text fades
+            this.isLevelTransition = false;
+          },
         });
       },
     });

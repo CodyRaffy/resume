@@ -4,7 +4,7 @@ export type CollectibleType = 'bronze' | 'silver' | 'gold' | 'special';
 export interface LevelDefinition {
   id: number;
   name: string;
-  scoreThreshold: number;
+  timeThreshold: number; // seconds of gameplay to reach this level
   speed: number;
   speedIncreaseRate: number;
   maxSpeed: number;
@@ -22,7 +22,7 @@ export const LEVELS: LevelDefinition[] = [
   {
     id: 1,
     name: 'Robot City',
-    scoreThreshold: 0,
+    timeThreshold: 0,
     speed: 0.65,
     speedIncreaseRate: 0.001,
     maxSpeed: 1.6,
@@ -38,7 +38,7 @@ export const LEVELS: LevelDefinition[] = [
   {
     id: 2,
     name: 'Robot Factory',
-    scoreThreshold: 500,
+    timeThreshold: 30,
     speed: 0.9,
     speedIncreaseRate: 0.002,
     maxSpeed: 2.0,
@@ -54,7 +54,7 @@ export const LEVELS: LevelDefinition[] = [
   {
     id: 3,
     name: 'Robot Wasteland',
-    scoreThreshold: 1500,
+    timeThreshold: 75,
     speed: 1.6,
     speedIncreaseRate: 0.004,
     maxSpeed: 3.0,
