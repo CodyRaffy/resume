@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 """
 Create custom Jackson character sprites based on his real appearance:
-- Orange Alaska hoodie with bear/mountain logo
+- Orange Alaska hoodie with bear/mountain logo (seen from behind)
 - Camo cargo pants
-- Brown/sandy wavy shoulder-length hair
+- Brown/sandy wavy shoulder-length hair (back of head visible)
 - Blue watch/bracelet on wrist
 - Barefoot
 
+All sprites are BACK-FACING (running away from camera into the screen)
+to match the endless runner perspective.
+
 Generates 3 sprites:
-  run.png   (128x192) - running pose, fists forward
-  jump.png  (128x192) - jumping, arm reaching up
-  slide.png (160x96)  - crouching low, fist out
+  run.png   (128x192) - running pose, back view
+  jump.png  (128x192) - jumping, arm reaching up, back view
+  slide.png (160x96)  - crouching low, back view
 """
 
 import os
@@ -94,7 +97,7 @@ def draw_hair(draw, head_cx, head_top, head_w, head_h, flowing_right=False):
 
 
 def draw_face(draw, cx, cy, w, h, expression='smile'):
-    """Draw Jackson's face."""
+    """Draw Jackson's face (front view) - kept for reference."""
     # Face shape
     draw.ellipse([cx - w//2, cy - h//2, cx + w//2, cy + h//2], fill=SKIN)
     # Slight shadow on sides
@@ -144,7 +147,72 @@ def draw_face(draw, cx, cy, w, h, expression='smile'):
                   fill=(180, 80, 80), width=2)
 
 
-def draw_hoodie_body(draw, cx, top, width, height, arms='fists'):
+def draw_back_of_head(draw, cx, cy, w, h):
+    """Draw the back of Jackson's head (hair covers everything)."""
+    # Skin of neck peeking below hair
+    neck_w = w * 0.3
+    draw.rectangle([cx - neck_w//2, cy + h//2 - 2, cx + neck_w//2, cy + h//2 + 8],
+                   fill=SKIN_SHADOW)
+
+    # Main head shape (covered by hair from behind)
+    draw.ellipse([cx - w//2, cy - h//2, cx + w//2, cy + h//2], fill=HAIR_BROWN)
+
+    # Hair mass (fuller from behind)
+    draw.ellipse([cx - w//2 - 4, cy - h//2 - 2, cx + w//2 + 4, cy + h//2 + 2],
+                 fill=HAIR_BROWN)
+
+    # Top highlight
+    draw.ellipse([cx - w//3, cy - h//2 - 2, cx + w//3, cy - h//4],
+                 fill=HAIR_HIGHLIGHT)
+
+    # Hair part/texture details
+    for i in range(4):
+        wy = int(cy - h * 0.2 + i * 7)
+        draw.arc([cx - w//3, wy, cx - w//6, wy + 8],
+                 start=160, end=340, fill=HAIR_SHADOW, width=1)
+        draw.arc([cx + w//6, wy, cx + w//3, wy + 8],
+                 start=200, end=380, fill=HAIR_SHADOW, width=1)
+
+    # Center part line
+    draw.line([cx, cy - h//2 + 2, cx - 2, cy - h//4],
+              fill=HAIR_SHADOW, width=1)
+
+
+def draw_hair_back(draw, head_cx, head_top, head_w, head_h, flowing=False):
+    """Draw Jackson's hair from behind (shoulder-length, wavy)."""
+    hair_top = head_top - 4
+    hair_left = head_cx - head_w // 2 - 8
+    hair_right = head_cx + head_w // 2 + 8
+
+    # Main hair mass
+    draw.ellipse([hair_left, hair_top, hair_right, head_top + head_h * 0.7],
+                 fill=HAIR_BROWN)
+
+    # Top highlight
+    draw.ellipse([hair_left + 6, hair_top, hair_right - 6, head_top + head_h * 0.3],
+                 fill=HAIR_HIGHLIGHT)
+
+    # Hair flowing down both sides (shoulder length)
+    draw.ellipse([hair_left - 2, head_top + head_h * 0.15,
+                  head_cx - head_w // 4, head_top + head_h + 18],
+                 fill=HAIR_BROWN)
+    draw.ellipse([head_cx + head_w // 4 - 2, head_top + head_h * 0.15,
+                  hair_right + 2, head_top + head_h + 18],
+                 fill=HAIR_BROWN)
+
+    # Wave details on the back
+    for i in range(4):
+        wy = int(head_top + head_h * 0.3 + i * 8)
+        draw.arc([hair_left + 4, wy, hair_left + 16, wy + 10],
+                 start=180, end=360, fill=HAIR_SHADOW, width=1)
+        draw.arc([hair_right - 16, wy, hair_right - 4, wy + 10],
+                 start=180, end=360, fill=HAIR_SHADOW, width=1)
+        # Center wave
+        draw.arc([head_cx - 6, wy + 2, head_cx + 6, wy + 10],
+                 start=180, end=360, fill=HAIR_SHADOW, width=1)
+
+
+def draw_hoodie_body(draw, cx, top, width, height, arms='fists', view='front'):
     """Draw the orange Alaska hoodie torso."""
     left = cx - width // 2
     right = cx + width // 2
@@ -153,37 +221,61 @@ def draw_hoodie_body(draw, cx, top, width, height, arms='fists'):
     draw.rounded_rectangle([left, top, right, top + height],
                            radius=6, fill=HOODIE_ORANGE)
 
-    # Kangaroo pocket
-    pocket_y = top + height * 0.55
-    pocket_h = height * 0.2
-    draw.rounded_rectangle([left + width * 0.15, pocket_y,
-                            right - width * 0.15, pocket_y + pocket_h],
-                           radius=4, fill=HOODIE_SHADOW)
-    # Pocket opening line
-    draw.line([left + width * 0.2, pocket_y + pocket_h * 0.1,
-               right - width * 0.2, pocket_y + pocket_h * 0.1],
-              fill=HOODIE_HIGHLIGHT, width=1)
+    if view == 'back':
+        # Back of hoodie - no front pocket or logo visible
+        # Hood bunched at neck
+        draw.rounded_rectangle([left + width * 0.2, top, right - width * 0.2, top + height * 0.1],
+                               radius=4, fill=HOODIE_SHADOW)
 
-    # Hood strings
-    draw.line([cx - 4, top + 2, cx - 6, top + 18], fill=HOODIE_SHADOW, width=1)
-    draw.line([cx + 4, top + 2, cx + 6, top + 18], fill=HOODIE_SHADOW, width=1)
+        # Center back seam
+        draw.line([cx, top + height * 0.08, cx, top + height * 0.9],
+                  fill=HOODIE_SHADOW, width=1)
 
-    # Alaska logo circle
-    logo_cy = top + height * 0.32
-    logo_r = int(width * 0.22)
-    draw.ellipse([cx - logo_r, logo_cy - logo_r, cx + logo_r, logo_cy + logo_r],
-                 outline=HOODIE_LOGO_DARK, width=2)
-    # "ALASKA" text approximation (small marks)
-    for i, offset in enumerate(range(-logo_r + 4, logo_r - 3, 4)):
-        draw.rectangle([cx + offset, logo_cy - logo_r + 4,
-                        cx + offset + 2, logo_cy - logo_r + 8],
-                       fill=HOODIE_LOGO_DARK)
-    # Mountain triangle in logo
-    mt_y = logo_cy - 2
-    draw.polygon([(cx - 6, mt_y + 5), (cx, mt_y - 5), (cx + 6, mt_y + 5)],
-                 fill=HOODIE_LOGO_DARK)
-    # Bear silhouette (tiny)
-    draw.ellipse([cx - 4, mt_y + 4, cx + 4, mt_y + 10], fill=HOODIE_LOGO_DARK)
+        # Shoulder seam lines
+        draw.line([left + 4, top + height * 0.08, cx, top + height * 0.05],
+                  fill=HOODIE_SHADOW, width=1)
+        draw.line([right - 4, top + height * 0.08, cx, top + height * 0.05],
+                  fill=HOODIE_SHADOW, width=1)
+
+        # Bottom hem
+        draw.line([left + 4, top + height - 4, right - 4, top + height - 4],
+                  fill=HOODIE_SHADOW, width=1)
+
+        # Slight wrinkle details
+        draw.arc([cx - 12, top + height * 0.4, cx + 2, top + height * 0.55],
+                 start=20, end=160, fill=HOODIE_SHADOW, width=1)
+        draw.arc([cx - 2, top + height * 0.45, cx + 12, top + height * 0.6],
+                 start=20, end=160, fill=HOODIE_SHADOW, width=1)
+    else:
+        # Front view (original)
+        # Kangaroo pocket
+        pocket_y = top + height * 0.55
+        pocket_h = height * 0.2
+        draw.rounded_rectangle([left + width * 0.15, pocket_y,
+                                right - width * 0.15, pocket_y + pocket_h],
+                               radius=4, fill=HOODIE_SHADOW)
+        # Pocket opening line
+        draw.line([left + width * 0.2, pocket_y + pocket_h * 0.1,
+                   right - width * 0.2, pocket_y + pocket_h * 0.1],
+                  fill=HOODIE_HIGHLIGHT, width=1)
+
+        # Hood strings
+        draw.line([cx - 4, top + 2, cx - 6, top + 18], fill=HOODIE_SHADOW, width=1)
+        draw.line([cx + 4, top + 2, cx + 6, top + 18], fill=HOODIE_SHADOW, width=1)
+
+        # Alaska logo circle
+        logo_cy = top + height * 0.32
+        logo_r = int(width * 0.22)
+        draw.ellipse([cx - logo_r, logo_cy - logo_r, cx + logo_r, logo_cy + logo_r],
+                     outline=HOODIE_LOGO_DARK, width=2)
+        for i, offset in enumerate(range(-logo_r + 4, logo_r - 3, 4)):
+            draw.rectangle([cx + offset, logo_cy - logo_r + 4,
+                            cx + offset + 2, logo_cy - logo_r + 8],
+                           fill=HOODIE_LOGO_DARK)
+        mt_y = logo_cy - 2
+        draw.polygon([(cx - 6, mt_y + 5), (cx, mt_y - 5), (cx + 6, mt_y + 5)],
+                     fill=HOODIE_LOGO_DARK)
+        draw.ellipse([cx - 4, mt_y + 4, cx + 4, mt_y + 10], fill=HOODIE_LOGO_DARK)
 
     # Shoulder shadow
     draw.line([left + 2, top + 3, right - 2, top + 3],
@@ -200,7 +292,7 @@ def draw_fist(draw, x, y, size=8):
 
 
 def create_run_sprite():
-    """Running pose - fists up, dynamic stride, big smile."""
+    """Running pose - BACK VIEW - character running away from camera."""
     W, H = 128, 192
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
@@ -214,14 +306,14 @@ def create_run_sprite():
     body_w, body_h = 48, 55
     leg_top = body_top + body_h - 4
 
-    # === LEGS (camo pants) - running stride ===
-    # Left leg (forward)
+    # === LEGS (camo pants) - running stride (back view) ===
+    # Left leg (forward stride)
     leg_left = [(cx - 18, leg_top), (cx - 22, leg_top + 20),
                 (cx - 16, leg_top + 50), (cx - 8, leg_top + 55),
                 (cx - 4, leg_top + 50), (cx - 6, leg_top + 20),
                 (cx - 8, leg_top)]
     draw.polygon(leg_left, fill=CAMO_GREEN1)
-    # Right leg (back)
+    # Right leg (back stride)
     leg_right = [(cx + 4, leg_top), (cx + 8, leg_top + 20),
                  (cx + 18, leg_top + 45), (cx + 24, leg_top + 50),
                  (cx + 20, leg_top + 55), (cx + 12, leg_top + 48),
@@ -237,53 +329,52 @@ def create_run_sprite():
         color = random.choice([CAMO_TAN, CAMO_DARK, CAMO_GREEN1])
         draw.ellipse([lx, ly, lx + 6, ly + 4], fill=color)
 
-    # Feet (barefoot)
+    # Feet (barefoot, heels visible from behind)
     draw.ellipse([cx - 18, leg_top + 50, cx - 6, leg_top + 58], fill=SKIN)
     draw.ellipse([cx + 16, leg_top + 48, cx + 28, leg_top + 56], fill=SKIN_SHADOW)
 
-    # === HOODIE BODY ===
-    draw_hoodie_body(draw, cx, body_top, body_w, body_h)
+    # === HOODIE BODY (back view) ===
+    draw_hoodie_body(draw, cx, body_top, body_w, body_h, view='back')
 
-    # === ARMS ===
-    # Left arm (forward, fist up)
+    # === ARMS (back view - pumping while running) ===
+    # Left arm (swinging forward - partially hidden)
     draw.rounded_rectangle([cx - body_w//2 - 8, body_top + 8,
                             cx - body_w//2 + 6, body_top + 35],
                            radius=4, fill=HOODIE_ORANGE)
-    # Forearm going forward
-    draw.rounded_rectangle([cx - body_w//2 - 14, body_top + 12,
-                            cx - body_w//2 - 2, body_top + 28],
+    draw.rounded_rectangle([cx - body_w//2 - 12, body_top + 14,
+                            cx - body_w//2 - 2, body_top + 30],
                            radius=4, fill=HOODIE_SHADOW)
-    draw_fist(draw, cx - body_w//2 - 10, body_top + 14, 6)
-    # Watch on left wrist
-    draw.rectangle([cx - body_w//2 - 14, body_top + 24,
-                    cx - body_w//2 - 4, body_top + 28], fill=WATCH_BLUE)
+    draw_fist(draw, cx - body_w//2 - 8, body_top + 16, 5)
 
-    # Right arm (back, fist)
+    # Right arm (swinging back)
     draw.rounded_rectangle([cx + body_w//2 - 6, body_top + 10,
                             cx + body_w//2 + 8, body_top + 38],
                            radius=4, fill=HOODIE_ORANGE)
     draw.rounded_rectangle([cx + body_w//2, body_top + 30,
-                            cx + body_w//2 + 14, body_top + 42],
+                            cx + body_w//2 + 12, body_top + 44],
                            radius=4, fill=HOODIE_SHADOW)
-    draw_fist(draw, cx + body_w//2 + 10, body_top + 40, 6)
+    draw_fist(draw, cx + body_w//2 + 8, body_top + 42, 5)
+    # Watch visible on left wrist from behind
+    draw.rectangle([cx - body_w//2 - 12, body_top + 26,
+                    cx - body_w//2 - 4, body_top + 30], fill=WATCH_BLUE)
 
-    # === HEAD & HAIR ===
-    draw_hair(draw, cx, head_cy - head_h//2, head_w, head_h)
-    draw_face(draw, cx, head_cy, head_w, head_h, 'smile')
+    # === HEAD & HAIR (back view - no face, just hair) ===
+    draw_hair_back(draw, cx, head_cy - head_h//2, head_w, head_h)
+    draw_back_of_head(draw, cx, head_cy, head_w, head_h)
 
-    # === MOTION LINES (running effect) ===
-    draw.line([cx + 38, body_top + 15, cx + 52, body_top + 12],
-              fill=(255, 255, 255, 120), width=2)
-    draw.line([cx + 36, body_top + 28, cx + 50, body_top + 28],
-              fill=(255, 255, 255, 100), width=1)
-    draw.line([cx + 35, body_top + 40, cx + 48, body_top + 42],
-              fill=(255, 255, 255, 80), width=1)
+    # === MOTION LINES (trailing behind - below/behind character) ===
+    for i in range(3):
+        y = leg_top + 58 + i * 5
+        hw = 12 + i * 4
+        alpha = 140 - i * 40
+        draw.line([cx - hw, y, cx + hw, y],
+                  fill=(255, 255, 255, alpha), width=2)
 
     return img
 
 
 def create_jump_sprite():
-    """Jump pose - arm reaching up high, feet off ground, body stretched."""
+    """Jump pose - BACK VIEW - arm reaching up, feet off ground."""
     W, H = 128, 192
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
@@ -297,7 +388,7 @@ def create_jump_sprite():
     body_w, body_h = 46, 52
     leg_top = body_top + body_h - 4
 
-    # === LEGS (tucked/dangling - airborne) ===
+    # === LEGS (tucked/dangling - airborne, back view) ===
     # Left leg straight down
     draw.rounded_rectangle([cx - 14, leg_top, cx - 2, leg_top + 48],
                            radius=4, fill=CAMO_GREEN1)
@@ -314,27 +405,25 @@ def create_jump_sprite():
         color = random.choice([CAMO_TAN, CAMO_DARK])
         draw.ellipse([lx, ly, lx + 5, ly + 3], fill=color)
 
-    # Feet (dangling, pointed slightly down)
+    # Feet (dangling, soles partly visible from behind)
     draw.ellipse([cx - 15, leg_top + 44, cx - 1, leg_top + 52], fill=SKIN)
     draw.ellipse([cx + 1, leg_top + 42, cx + 15, leg_top + 50], fill=SKIN_SHADOW)
 
-    # === HOODIE BODY ===
-    draw_hoodie_body(draw, cx, body_top, body_w, body_h)
+    # === HOODIE BODY (back view) ===
+    draw_hoodie_body(draw, cx, body_top, body_w, body_h, view='back')
 
-    # === ARMS ===
-    # Right arm reaching UP HIGH (the signature jump pose)
-    # Upper arm
+    # === ARMS (back view) ===
+    # Right arm reaching UP HIGH (seen from behind)
     draw.rounded_rectangle([cx + body_w//2 - 8, body_top - 5,
                             cx + body_w//2 + 6, body_top + 20],
                            radius=4, fill=HOODIE_ORANGE)
-    # Forearm reaching up
     draw.rounded_rectangle([cx + body_w//2 - 2, body_top - 28,
                             cx + body_w//2 + 10, body_top],
                            radius=4, fill=HOODIE_ORANGE)
-    # Hand reaching up
+    # Hand reaching up (back of hand visible)
     draw.ellipse([cx + body_w//2 - 2, body_top - 38,
                   cx + body_w//2 + 12, body_top - 26], fill=SKIN)
-    # Fingers spread
+    # Back of fingers
     for i in range(3):
         fx = cx + body_w//2 + 1 + i * 4
         draw.line([fx, body_top - 36, fx, body_top - 42], fill=SKIN, width=2)
@@ -347,13 +436,13 @@ def create_jump_sprite():
                             cx - body_w//2 + 2, body_top + 36],
                            radius=4, fill=HOODIE_SHADOW)
     draw_fist(draw, cx - body_w//2 - 4, body_top + 22, 5)
-    # Watch
+    # Watch on left wrist
     draw.rectangle([cx - body_w//2 - 8, body_top + 30,
                     cx - body_w//2, body_top + 34], fill=WATCH_BLUE)
 
-    # === HEAD & HAIR (hair flowing from jump motion) ===
-    draw_hair(draw, cx, head_cy - head_h//2, head_w, head_h, flowing_right=True)
-    draw_face(draw, cx, head_cy, head_w, head_h, 'excited')
+    # === HEAD & HAIR (back view - hair flowing up from jump) ===
+    draw_hair_back(draw, cx, head_cy - head_h//2, head_w, head_h, flowing=True)
+    draw_back_of_head(draw, cx, head_cy, head_w, head_h)
 
     # === JUMP EFFECT LINES (below feet) ===
     for i in range(3):
@@ -367,92 +456,101 @@ def create_jump_sprite():
 
 
 def create_slide_sprite():
-    """Slide/crouch pose - low crouch, fist forward, determined face."""
+    """Slide/crouch pose - BACK VIEW - low crouch, leaning forward away from camera."""
     W, H = 160, 96
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    # Character is crouched low and leaning forward
-    # Head is roughly in the left-center, body extends right
+    # Character is crouched low, seen from behind, leaning forward (into screen)
+    # Head is in the center-top area, body extends below
 
-    head_cx = 65
-    head_cy = 22
-    head_w, head_h = 30, 26
+    head_cx = 80
+    head_cy = 20
+    head_w, head_h = 28, 24
 
-    # === LEGS (crouched, folded under) ===
+    # === LEGS (crouched, folded under - back view) ===
     # Left leg bent under body
-    draw.rounded_rectangle([70, 55, 105, 72], radius=5, fill=CAMO_GREEN1)
-    draw.rounded_rectangle([95, 60, 120, 75], radius=4, fill=CAMO_GREEN2)
-    # Right leg extended slightly back
-    draw.rounded_rectangle([105, 48, 140, 65], radius=5, fill=CAMO_GREEN1)
-    draw.rounded_rectangle([130, 55, 148, 70], radius=4, fill=CAMO_GREEN2)
+    draw.rounded_rectangle([55, 55, 85, 72], radius=5, fill=CAMO_GREEN1)
+    draw.rounded_rectangle([45, 60, 60, 75], radius=4, fill=CAMO_GREEN2)
+    # Right leg bent under
+    draw.rounded_rectangle([85, 55, 115, 72], radius=5, fill=CAMO_GREEN1)
+    draw.rounded_rectangle([110, 60, 125, 75], radius=4, fill=CAMO_GREEN2)
 
     # Camo details
     import random
     random.seed(55)
     for _ in range(12):
-        lx = random.randint(70, 145)
-        ly = random.randint(50, 72)
+        lx = random.randint(48, 122)
+        ly = random.randint(52, 72)
         color = random.choice([CAMO_TAN, CAMO_DARK, CAMO_GREEN1])
         draw.ellipse([lx, ly, lx + 5, ly + 3], fill=color)
 
-    # Feet
-    draw.ellipse([130, 65, 148, 74], fill=SKIN)
-    draw.ellipse([96, 70, 112, 78], fill=SKIN_SHADOW)
+    # Feet (soles visible from behind)
+    draw.ellipse([42, 68, 56, 78], fill=SKIN_SHADOW)
+    draw.ellipse([112, 68, 128, 78], fill=SKIN_SHADOW)
 
-    # === HOODIE BODY (crouched, leaning forward) ===
-    # Main torso - angled forward
-    body_points = [(55, 36), (110, 32), (115, 58), (60, 62)]
-    draw.polygon(body_points, fill=HOODIE_ORANGE)
-    # Rounded edges
-    draw.rounded_rectangle([55, 32, 115, 62], radius=6, fill=HOODIE_ORANGE)
+    # === HOODIE BODY (crouched, back view - leaning forward into screen) ===
+    draw.rounded_rectangle([55, 30, 115, 60], radius=6, fill=HOODIE_ORANGE)
 
-    # Hoodie pocket shadow
-    draw.rounded_rectangle([68, 48, 100, 58], radius=3, fill=HOODIE_SHADOW)
+    # Back seam
+    draw.line([head_cx, 32, head_cx, 58], fill=HOODIE_SHADOW, width=1)
 
-    # Alaska logo (smaller, on the side since leaning)
-    logo_cx, logo_cy = 85, 42
-    logo_r = 8
-    draw.ellipse([logo_cx - logo_r, logo_cy - logo_r,
-                  logo_cx + logo_r, logo_cy + logo_r],
-                 outline=HOODIE_LOGO_DARK, width=1)
-    draw.polygon([(logo_cx - 3, logo_cy + 2), (logo_cx, logo_cy - 4),
-                  (logo_cx + 3, logo_cy + 2)], fill=HOODIE_LOGO_DARK)
+    # Hood bunched
+    draw.rounded_rectangle([65, 28, 95, 34], radius=3, fill=HOODIE_SHADOW)
 
-    # === ARMS ===
-    # Left arm reaching forward with fist (the signature slide pose)
-    draw.rounded_rectangle([35, 36, 58, 50], radius=4, fill=HOODIE_ORANGE)
-    draw.rounded_rectangle([18, 38, 40, 48], radius=4, fill=HOODIE_SHADOW)
-    draw_fist(draw, 16, 43, 7)
+    # Shoulder seams
+    draw.line([57, 34, head_cx, 30], fill=HOODIE_SHADOW, width=1)
+    draw.line([113, 34, head_cx, 30], fill=HOODIE_SHADOW, width=1)
+
+    # Wrinkle details on back
+    draw.arc([70, 42, 90, 52], start=20, end=160, fill=HOODIE_SHADOW, width=1)
+
+    # Bottom hem
+    draw.line([58, 58, 112, 58], fill=HOODIE_SHADOW, width=1)
+
+    # === ARMS (back view, tucked at sides while sliding) ===
+    # Left arm
+    draw.rounded_rectangle([40, 36, 58, 50], radius=4, fill=HOODIE_ORANGE)
+    draw.rounded_rectangle([32, 42, 44, 52], radius=3, fill=HOODIE_SHADOW)
+    draw_fist(draw, 34, 47, 5)
     # Watch
-    draw.rectangle([30, 44, 38, 48], fill=WATCH_BLUE)
+    draw.rectangle([36, 48, 44, 52], fill=WATCH_BLUE)
 
-    # Right arm tucked
-    draw.rounded_rectangle([108, 38, 122, 54], radius=4, fill=HOODIE_SHADOW)
-    draw_fist(draw, 118, 50, 5)
+    # Right arm
+    draw.rounded_rectangle([112, 36, 130, 50], radius=4, fill=HOODIE_ORANGE)
+    draw.rounded_rectangle([126, 42, 138, 52], radius=3, fill=HOODIE_SHADOW)
+    draw_fist(draw, 134, 47, 5)
 
-    # === HEAD & HAIR ===
-    # Hair (flowing back from forward motion)
-    hair_top = head_cy - head_h//2 - 3
-    draw.ellipse([head_cx - head_w//2 - 4, hair_top,
-                  head_cx + head_w//2 + 8, head_cy + head_h * 0.2],
+    # === HEAD & HAIR (back view) ===
+    # Back of head - all hair
+    draw.ellipse([head_cx - head_w//2 - 4, head_cy - head_h//2 - 2,
+                  head_cx + head_w//2 + 4, head_cy + head_h//2 + 2],
                  fill=HAIR_BROWN)
-    # Hair flowing back
-    draw.ellipse([head_cx + head_w//4, hair_top + 2,
-                  head_cx + head_w//2 + 16, head_cy + head_h//2 + 8],
-                 fill=HAIR_BROWN)
-    draw.ellipse([head_cx - head_w//2 - 2, hair_top + 4,
-                  head_cx - head_w//4, head_cy + head_h//2 + 4],
+    # Hair highlight on top
+    draw.ellipse([head_cx - head_w//3, head_cy - head_h//2 - 2,
+                  head_cx + head_w//3, head_cy - head_h//4],
                  fill=HAIR_HIGHLIGHT)
+    # Hair flowing back/down from forward lean
+    draw.ellipse([head_cx - head_w//2 - 2, head_cy,
+                  head_cx + head_w//2 + 6, head_cy + head_h//2 + 10],
+                 fill=HAIR_BROWN)
+    # Wave details
+    for i in range(2):
+        wy = head_cy - 4 + i * 8
+        draw.arc([head_cx - 8, wy, head_cx + 8, wy + 6],
+                 start=180, end=360, fill=HAIR_SHADOW, width=1)
 
-    # Face (looking forward/down, determined)
-    draw_face(draw, head_cx, head_cy, head_w, head_h, 'determined')
+    # Neck
+    draw.rectangle([head_cx - 5, head_cy + head_h//2,
+                    head_cx + 5, head_cy + head_h//2 + 6], fill=SKIN_SHADOW)
 
-    # === SPEED LINES ===
+    # === SPEED LINES (trailing behind/below) ===
     for i in range(4):
-        y = 30 + i * 12
-        draw.line([135 + i * 2, y, 155, y],
-                  fill=(255, 255, 255, 100 - i * 20), width=1)
+        y = 72 + i * 5
+        hw = 20 + i * 6
+        alpha = 120 - i * 25
+        draw.line([head_cx - hw, y, head_cx + hw, y],
+                  fill=(255, 255, 255, alpha), width=1)
 
     return img
 
