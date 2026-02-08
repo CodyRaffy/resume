@@ -23,6 +23,9 @@ export class Player extends Phaser.GameObjects.Sprite {
     this.normalHeight = PLAYER_HEIGHT;
     this.slideHeight = PLAYER_HEIGHT / 2;
     this.setDepth(50);
+
+    // Ensure consistent display size regardless of source image dimensions
+    this.setDisplaySize(PLAYER_WIDTH, PLAYER_HEIGHT);
   }
 
   moveLeft(): void {
@@ -43,6 +46,7 @@ export class Player extends Phaser.GameObjects.Sprite {
     if (this.playerState !== 'running') return;
     this.playerState = 'jumping';
     this.setTexture('player-jump');
+    this.setDisplaySize(PLAYER_WIDTH, PLAYER_HEIGHT);
 
     this.scene.tweens.add({
       targets: this,
@@ -58,6 +62,7 @@ export class Player extends Phaser.GameObjects.Sprite {
           onComplete: () => {
             this.playerState = 'running';
             this.setTexture('player');
+            this.setDisplaySize(PLAYER_WIDTH, PLAYER_HEIGHT);
           },
         });
       },
@@ -68,6 +73,7 @@ export class Player extends Phaser.GameObjects.Sprite {
     if (this.playerState !== 'running') return;
     this.playerState = 'sliding';
     this.setTexture('player-slide');
+    this.setDisplaySize(80, this.slideHeight);
 
     // Move down to ground level and shrink hitbox
     this.y = this.baseY + (this.normalHeight - this.slideHeight) / 2;
@@ -75,6 +81,7 @@ export class Player extends Phaser.GameObjects.Sprite {
     this.scene.time.delayedCall(SLIDE_DURATION, () => {
       this.playerState = 'running';
       this.setTexture('player');
+      this.setDisplaySize(PLAYER_WIDTH, PLAYER_HEIGHT);
       this.y = this.baseY;
     });
   }

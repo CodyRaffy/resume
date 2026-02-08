@@ -116,8 +116,9 @@ export class MenuScene extends Phaser.Scene {
     });
     controlsText.setOrigin(0.5, 0.5);
 
-    // Animated player placeholder on the menu
+    // Animated Jackson character on the menu
     const jackson = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT * 0.75, 'player');
+    jackson.setDisplaySize(96, 144); // Larger display on menu for visibility
     this.tweens.add({
       targets: jackson,
       y: jackson.y - 8,

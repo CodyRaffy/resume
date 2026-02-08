@@ -1,6 +1,23 @@
 import Phaser from 'phaser';
+import { PLAYER_WIDTH, PLAYER_HEIGHT } from '../config/GameConfig';
+
+/**
+ * Expected Jackson sprite files in public/assets/sprites/jackson/:
+ *   run.png   – running pose (approx 64x96 or similar portrait ratio)
+ *   jump.png  – jumping pose
+ *   slide.png – sliding/crouching pose (wider, shorter)
+ *
+ * If any image is missing, a procedural placeholder is generated instead.
+ */
+const JACKSON_SPRITES: { key: string; file: string; w: number; h: number }[] = [
+  { key: 'player', file: 'assets/sprites/jackson/run.png', w: PLAYER_WIDTH, h: PLAYER_HEIGHT },
+  { key: 'player-jump', file: 'assets/sprites/jackson/jump.png', w: PLAYER_WIDTH, h: PLAYER_HEIGHT },
+  { key: 'player-slide', file: 'assets/sprites/jackson/slide.png', w: 80, h: 48 },
+];
 
 export class BootScene extends Phaser.Scene {
+  private failedImages: Set<string> = new Set();
+
   constructor() {
     super({ key: 'BootScene' });
   }
@@ -42,18 +59,31 @@ export class BootScene extends Phaser.Scene {
       percentText.destroy();
     });
 
-    this.createPlaceholderTextures();
+    // Track images that fail to load so we can generate placeholders
+    this.load.on('loaderror', (file: Phaser.Loader.File) => {
+      this.failedImages.add(file.key);
+    });
+
+    // Attempt to load real Jackson sprite images
+    for (const sprite of JACKSON_SPRITES) {
+      this.load.image(sprite.key, sprite.file);
+    }
   }
 
   create(): void {
-    this.scene.start('MenuScene');
-  }
+    // Generate placeholder textures for any Jackson sprites that failed to load
+    const playerKeys = new Map([
+      ['player', 'run'],
+      ['player-jump', 'jump'],
+      ['player-slide', 'slide'],
+    ]);
 
-  private createPlaceholderTextures(): void {
-    // --- Player textures with robot-character look ---
-    this.createPlayerTexture('player', 64, 96, 0x3498DB, 'run');
-    this.createPlayerTexture('player-jump', 64, 96, 0x2980B9, 'jump');
-    this.createPlayerTexture('player-slide', 80, 48, 0x2471A3, 'slide');
+    for (const [key, pose] of playerKeys) {
+      if (this.failedImages.has(key) || !this.textures.exists(key)) {
+        const spec = JACKSON_SPRITES.find(s => s.key === key)!;
+        this.createPlayerTexture(key, spec.w, spec.h, pose === 'slide' ? 0x2471A3 : pose === 'jump' ? 0x2980B9 : 0x3498DB, pose);
+      }
+    }
 
     // Player shadow
     const shadowGfx = this.add.graphics();
@@ -62,19 +92,29 @@ export class BootScene extends Phaser.Scene {
     shadowGfx.generateTexture('player-shadow', 64, 16);
     shadowGfx.destroy();
 
-    // --- Obstacle robot textures ---
+    // Always generate non-player placeholders (obstacles, collectibles, particles)
+    this.createObstacleTextures();
+    this.createCollectibleTextures();
+    this.createParticleTexture();
+
+    this.scene.start('MenuScene');
+  }
+
+  private createObstacleTextures(): void {
     this.createRobotTexture('robot-ground', 56, 48, 0xE74C3C, 'short');
     this.createRobotTexture('robot-tall', 48, 100, 0xC0392B, 'tall');
     this.createRobotTexture('robot-lane', 56, 72, 0xE74C3C, 'medium');
     this.createRobotTexture('robot-flying', 56, 48, 0x9B59B6, 'flying');
+  }
 
-    // --- Collectible robot textures ---
+  private createCollectibleTextures(): void {
     this.createCollectibleTexture('collect-bronze', 24, 0xCD7F32);
     this.createCollectibleTexture('collect-silver', 24, 0xC0C0C0);
     this.createCollectibleTexture('collect-gold', 24, 0xFFD700);
     this.createCollectibleTexture('collect-special', 28, 0x00FF88);
+  }
 
-    // --- Particle ---
+  private createParticleTexture(): void {
     const partGfx = this.add.graphics();
     partGfx.fillStyle(0xFFFFFF, 1);
     partGfx.fillCircle(4, 4, 4);
