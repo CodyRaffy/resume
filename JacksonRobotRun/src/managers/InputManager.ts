@@ -1,10 +1,10 @@
 import Phaser from 'phaser';
-import { SWIPE_THRESHOLD, GAME_WIDTH } from '../config/GameConfig';
+import { SWIPE_THRESHOLD, GAME_WIDTH, GAME_HEIGHT } from '../config/GameConfig';
 
-// Increased from 300ms to 500ms so slower/deliberate taps are not ignored
-const SWIPE_MAX_TIME = 500;
+// Allow slower swipes to register
+const SWIPE_MAX_TIME = 700;
 // Taps longer than this are discarded entirely
-const TAP_MAX_TIME = 800;
+const TAP_MAX_TIME = 1000;
 
 export class InputManager {
   private scene: Phaser.Scene;
@@ -68,26 +68,38 @@ export class InputManager {
       const absY = Math.abs(deltaY);
 
       if (deltaTime <= SWIPE_MAX_TIME && (absX > SWIPE_THRESHOLD || absY > SWIPE_THRESHOLD)) {
-        // It's a swipe
-        if (absX > absY) {
-          if (deltaX > 0) {
-            this.getPlayer()?.moveRight();
-          } else {
-            this.getPlayer()?.moveLeft();
-          }
-        } else {
+        // It's a swipe — bias toward vertical to make jump/slide more reliable.
+        // Vertical wins if absY >= absX * 0.6 (diagonal-ish swipes count as vertical)
+        if (absY >= absX * 0.6) {
           if (deltaY < 0) {
             this.getPlayer()?.jump();
           } else {
             this.getPlayer()?.slide();
           }
+        } else {
+          if (deltaX > 0) {
+            this.getPlayer()?.moveRight();
+          } else {
+            this.getPlayer()?.moveLeft();
+          }
         }
       } else {
-        // It's a tap - use left/right half of screen
-        if (pointer.x < GAME_WIDTH / 2) {
-          this.getPlayer()?.moveLeft();
+        // It's a tap — use screen zones:
+        // Top third = jump, bottom third = slide, middle = left/right lane change
+        const screenThird = GAME_HEIGHT / 3;
+        if (this.swipeStartY < screenThird + 60) {
+          // Top area (below HUD) = jump
+          this.getPlayer()?.jump();
+        } else if (this.swipeStartY > screenThird * 2) {
+          // Bottom area = slide
+          this.getPlayer()?.slide();
         } else {
-          this.getPlayer()?.moveRight();
+          // Middle area = left/right
+          if (pointer.x < GAME_WIDTH / 2) {
+            this.getPlayer()?.moveLeft();
+          } else {
+            this.getPlayer()?.moveRight();
+          }
         }
       }
     });
