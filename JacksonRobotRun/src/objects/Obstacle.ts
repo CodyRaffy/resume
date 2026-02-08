@@ -75,12 +75,12 @@ export class Obstacle extends Phaser.GameObjects.Sprite {
 
     // Flying robots hover higher
     if (this.obstacleType === 'flying') {
-      this.y -= 50 * scale;
+      this.y -= 80 * scale;
     }
 
     // Bars sit at head height (duck under them)
     if (this.obstacleType === 'bar') {
-      this.y -= 40 * scale;
+      this.y -= 70 * scale;
     }
 
     // Update second sprite for double blocker
