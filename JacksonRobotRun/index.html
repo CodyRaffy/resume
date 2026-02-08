@@ -8,6 +8,9 @@
   <meta name="description" content="Jackson Robot Run - An endless runner game. Dodge robots, collect bots, and rack up points!">
   <meta name="theme-color" content="#1a1a2e">
 
+  <link rel="manifest" href="./manifest.json">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+
   <title>Jackson Robot Run</title>
 
   <style>
@@ -68,5 +71,12 @@
   <a id="back-link" href="../index.html">&larr; Portfolio</a>
   <div id="game-container"></div>
   <script type="module" src="./src/main.ts"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js');
+      });
+    }
+  </script>
 </body>
 </html>
