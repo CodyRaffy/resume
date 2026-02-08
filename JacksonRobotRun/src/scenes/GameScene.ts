@@ -11,6 +11,7 @@ import { LevelManager } from '../managers/LevelManager';
 import { InputManager } from '../managers/InputManager';
 import { Obstacle } from '../objects/Obstacle';
 import { Collectible } from '../objects/Collectible';
+import { AudioManager } from '../managers/AudioManager';
 
 // Depth zone where collisions are checked (obstacle near the player).
 // Widened to prevent skipping at high speed + low framerate.
@@ -95,6 +96,27 @@ export class GameScene extends Phaser.Scene {
     this.levelAnnouncement.setOrigin(0.5, 0.5);
     this.levelAnnouncement.setAlpha(0);
     this.levelAnnouncement.setDepth(100);
+
+    // Start music
+    const audio = AudioManager.getInstance();
+    audio.unlock();
+    audio.playMusic();
+
+    // Mute button
+    const muteBtn = this.add.text(GAME_WIDTH - 50, 30, audio.isMuted() ? 'M' : 'S', {
+      fontFamily: 'Arial Black',
+      fontSize: '16px',
+      color: '#FFFFFF',
+      stroke: '#000000',
+      strokeThickness: 3,
+    });
+    muteBtn.setOrigin(0.5, 0.5);
+    muteBtn.setInteractive({ useHandCursor: true });
+    muteBtn.setDepth(100);
+    muteBtn.on('pointerdown', () => {
+      const muted = audio.toggleMute();
+      muteBtn.setText(muted ? 'M' : 'S');
+    });
 
     // Pause button
     const pauseBtn = this.add.text(GAME_WIDTH - 15, 15, '| |', {
@@ -401,6 +423,8 @@ export class GameScene extends Phaser.Scene {
     this.scoreManager.resetCombo();
     obstacle.destroy();
 
+    AudioManager.getInstance().playHit();
+
     // Screen shake
     this.cameras.main.shake(300, 0.015);
 
@@ -431,6 +455,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   onPlatformLand(platform: Obstacle): void {
+    AudioManager.getInstance().playPlatformLand();
     const earned = this.scoreManager.addCollectible(PLATFORM_JUMP_POINTS);
 
     // Floating score text
@@ -470,6 +495,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   onBarSlide(bar: Obstacle): void {
+    AudioManager.getInstance().playBarSlide();
     const earned = this.scoreManager.addCollectible(BAR_SLIDE_POINTS);
 
     // Floating score text
@@ -509,6 +535,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   onCollectiblePickup(collectible: Collectible): void {
+    AudioManager.getInstance().playCollect();
     const basePoints = collectible.getPoints();
     // addCollectible returns the actual earned value (with multiplier applied)
     const earned = this.scoreManager.addCollectible(basePoints);
@@ -592,6 +619,9 @@ export class GameScene extends Phaser.Scene {
   private gameOver(): void {
     this.isGameOver = true;
     this.scoreManager.saveHighScore();
+    const audio = AudioManager.getInstance();
+    audio.stopMusic();
+    audio.playGameOver();
 
     // Brief delay then transition
     this.time.delayedCall(600, () => {

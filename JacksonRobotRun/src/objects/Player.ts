@@ -4,6 +4,7 @@ import {
   JUMP_DURATION, JUMP_HEIGHT, SLIDE_DURATION,
   PLAYER_WIDTH, PLAYER_HEIGHT,
 } from '../config/GameConfig';
+import { AudioManager } from '../managers/AudioManager';
 
 export type PlayerState = 'running' | 'jumping' | 'sliding';
 
@@ -45,6 +46,7 @@ export class Player extends Phaser.GameObjects.Sprite {
   jump(): void {
     if (this.playerState !== 'running') return;
     this.playerState = 'jumping';
+    AudioManager.getInstance().playJump();
     this.setTexture('player-jump');
     this.setDisplaySize(PLAYER_WIDTH, PLAYER_HEIGHT);
 
@@ -72,6 +74,7 @@ export class Player extends Phaser.GameObjects.Sprite {
   slide(): void {
     if (this.playerState !== 'running') return;
     this.playerState = 'sliding';
+    AudioManager.getInstance().playSlide();
     this.setTexture('player-slide');
     this.setDisplaySize(80, this.slideHeight);
 

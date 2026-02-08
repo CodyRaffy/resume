@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT } from '../config/GameConfig';
+import { AudioManager } from '../managers/AudioManager';
 
 interface GameOverData {
   score: number;
@@ -129,6 +130,7 @@ export class GameOverScene extends Phaser.Scene {
 
     const hitArea = this.add.zone(x, y, btnW, btnH).setInteractive();
     hitArea.on('pointerdown', () => {
+      AudioManager.getInstance().playClick();
       this.tweens.add({
         targets: text,
         scaleX: 0.9,

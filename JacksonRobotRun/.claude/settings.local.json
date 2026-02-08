@@ -8,7 +8,8 @@
       "Bash(node scripts/generate-icons.js:*)",
       "Bash(dir:*)",
       "Bash(gh api:*)",
-      "Bash(git -C \"C:\\\\Code\\\\resume\" log master --oneline -5)"
+      "Bash(git -C \"C:\\\\Code\\\\resume\" log master --oneline -5)",
+      "Bash(npx netlify-cli:*)"
     ]
   }
 }
