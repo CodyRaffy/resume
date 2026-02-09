@@ -164,9 +164,11 @@ export class GameScene extends Phaser.Scene {
       }
 
       // Award bonus points for correct bar/platform interactions (once per obstacle)
+      // Must be in the same lane as the obstacle to earn the bonus
       if (!obstacle.duckBonusAwarded
         && obstacle.depth_z >= COLLISION_Z_MIN
         && obstacle.depth_z <= COLLISION_Z_MAX
+        && obstacle.lane === this.player.currentLane
       ) {
         if (obstacle.obstacleType === 'bar' && this.player.playerState === 'sliding') {
           obstacle.duckBonusAwarded = true;
