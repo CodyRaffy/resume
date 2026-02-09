@@ -3,26 +3,13 @@ import { GAME_WIDTH, GAME_HEIGHT, PLAYER_WIDTH, PLAYER_HEIGHT } from '../config/
 import { ThemeManager } from '../managers/ThemeManager';
 import { getAllThemes, ThemeDefinition } from '../config/ThemeConfig';
 
-// Capacitor camera types - dynamically imported so it doesn't break on web
-interface CapCamera {
-  getPhoto(options: {
-    resultType: string;
-    source: string;
-    quality: number;
-    width?: number;
-    height?: number;
-    allowEditing?: boolean;
-  }): Promise<{ dataUrl?: string; base64String?: string }>;
-}
-
 /**
  * Customization screen where users can:
  * 1. Pick a theme (robots, soccer, space, etc.)
  * 2. Upload their own photos for the character sprites
  *
- * Supports both:
- * - Native camera/gallery via @capacitor/camera (on mobile)
- * - File picker with optional camera capture (on web)
+ * Uses native DOM file inputs overlaid on Phaser buttons so photo selection
+ * works reliably on all platforms including iOS PWA.
  */
 export class CustomizeScene extends Phaser.Scene {
   private themeCards: Phaser.GameObjects.Container[] = [];
@@ -30,7 +17,7 @@ export class CustomizeScene extends Phaser.Scene {
   private scrollY: number = 0;
   private characterPreview!: Phaser.GameObjects.Image;
   private hasCustomLabel!: Phaser.GameObjects.Text;
-  private isCapacitorAvailable: boolean = false;
+  private domOverlays: HTMLElement[] = [];
 
   constructor() {
     super({ key: 'CustomizeScene' });
@@ -39,9 +26,10 @@ export class CustomizeScene extends Phaser.Scene {
   create(): void {
     this.scrollY = 0;
     this.themeCards = [];
+    this.cleanupDomOverlays();
 
-    // Detect if running inside Capacitor (native mobile app)
-    this.isCapacitorAvailable = !!(window as any).Capacitor?.isNativePlatform?.();
+    // Remove DOM overlays when leaving this scene
+    this.events.once('shutdown', () => this.cleanupDomOverlays());
 
     const bg = this.add.graphics();
     bg.fillStyle(0x1a1a2e, 1);
@@ -97,26 +85,19 @@ export class CustomizeScene extends Phaser.Scene {
     this.updateCustomLabel();
 
     // --- Photo buttons: side by side ---
+    // Uses native DOM file inputs overlaid on Phaser visuals so iOS PWA allows tapping
     const btnY = 430;
     const btnGap = 8;
     const btnW = 150;
     const btnH = 44;
 
-    // Take Photo button (camera)
-    this.createButton(
-      GAME_WIDTH / 2 - btnW / 2 - btnGap / 2, btnY,
-      'Take Photo', 0x8E44AD,
-      () => this.getPhoto('camera'),
-      btnW, btnH, '14px'
-    );
+    // Draw visual buttons (Phaser graphics only, not interactive)
+    this.drawButtonVisual(GAME_WIDTH / 2 - btnW / 2 - btnGap / 2, btnY, 'Take Photo', 0x8E44AD, btnW, btnH, '14px');
+    this.drawButtonVisual(GAME_WIDTH / 2 + btnW / 2 + btnGap / 2, btnY, 'From Gallery', 0x3498DB, btnW, btnH, '14px');
 
-    // Choose from Gallery button (file picker / photo library)
-    this.createButton(
-      GAME_WIDTH / 2 + btnW / 2 + btnGap / 2, btnY,
-      'From Gallery', 0x3498DB,
-      () => this.getPhoto('gallery'),
-      btnW, btnH, '14px'
-    );
+    // Overlay native DOM file inputs on top (works on iOS PWA)
+    this.createFileInputOverlay(GAME_WIDTH / 2 - btnW / 2 - btnGap / 2, btnY, btnW, btnH, 'camera');
+    this.createFileInputOverlay(GAME_WIDTH / 2 + btnW / 2 + btnGap / 2, btnY, btnW, btnH, 'gallery');
 
     // Instructions
     this.add.text(GAME_WIDTH / 2, 470, 'Use a photo of yourself as the character!', {
@@ -248,8 +229,8 @@ export class CustomizeScene extends Phaser.Scene {
         scaleY: 0.9,
         duration: 80,
         yoyo: true,
-        onComplete: callback,
       });
+      callback();
     });
   }
 
@@ -262,78 +243,82 @@ export class CustomizeScene extends Phaser.Scene {
   }
 
   /**
-   * Get a photo from either the camera or gallery.
-   * Uses @capacitor/camera on native mobile, falls back to HTML file input on web.
+   * Draw a non-interactive visual button (Phaser graphics + text only).
    */
-  private getPhoto(source: 'camera' | 'gallery'): void {
-    if (this.isCapacitorAvailable) {
-      this.getPhotoCapacitor(source);
-    } else {
-      this.getPhotoWeb(source);
-    }
+  private drawButtonVisual(
+    x: number, y: number, label: string, color: number,
+    width: number, height: number, fontSize: string
+  ): void {
+    const btn = this.add.graphics();
+    btn.fillStyle(color, 1);
+    btn.fillRoundedRect(x - width / 2, y - height / 2, width, height, 10);
+    btn.lineStyle(2, 0xFFFFFF, 0.6);
+    btn.strokeRoundedRect(x - width / 2, y - height / 2, width, height, 10);
+
+    this.add.text(x, y, label, {
+      fontFamily: 'Arial Black, Arial',
+      fontSize,
+      color: '#FFFFFF',
+    }).setOrigin(0.5, 0.5);
   }
 
   /**
-   * Native mobile path: use @capacitor/camera plugin.
-   * Dynamically imports the plugin so it doesn't break when running on web.
+   * Create a transparent native DOM file input positioned over a Phaser button.
+   * This ensures iOS PWA can directly tap the file input (no programmatic click needed).
    */
-  private async getPhotoCapacitor(source: 'camera' | 'gallery'): Promise<void> {
-    try {
-      const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera');
-      const photo = await Camera.getPhoto({
-        resultType: CameraResultType.DataUrl,
-        source: source === 'camera' ? CameraSource.Camera : CameraSource.Photos,
-        quality: 90,
-        width: 512,
-        height: 768,
-        allowEditing: true,
-      });
+  private createFileInputOverlay(
+    gameX: number, gameY: number, gameW: number, gameH: number,
+    source: 'camera' | 'gallery'
+  ): void {
+    const canvas = this.game.canvas;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = rect.width / GAME_WIDTH;
+    const scaleY = rect.height / GAME_HEIGHT;
 
-      if (photo.dataUrl) {
-        this.processUploadedPhoto(photo.dataUrl);
-      }
-    } catch (err: any) {
-      // User cancelled or permission denied - that's okay
-      if (err?.message && !err.message.includes('cancel')) {
-        console.error('Camera error:', err);
-      }
-    }
-  }
-
-  /**
-   * Web fallback: use an HTML file input.
-   * For "camera" source, adds the capture attribute so mobile browsers
-   * open the camera directly. For "gallery", opens the normal file picker.
-   */
-  private getPhotoWeb(source: 'camera' | 'gallery'): void {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
     if (source === 'camera') {
       input.setAttribute('capture', 'environment');
     }
-    input.style.display = 'none';
-    document.body.appendChild(input);
+
+    input.style.position = 'absolute';
+    input.style.left = `${rect.left + (gameX - gameW / 2) * scaleX}px`;
+    input.style.top = `${rect.top + (gameY - gameH / 2) * scaleY}px`;
+    input.style.width = `${gameW * scaleX}px`;
+    input.style.height = `${gameH * scaleY}px`;
+    input.style.opacity = '0.01';
+    input.style.zIndex = '1000';
+    input.style.cursor = 'pointer';
+    input.style.fontSize = '0';
 
     input.addEventListener('change', () => {
       const file = input.files?.[0];
-      if (!file) {
-        document.body.removeChild(input);
-        return;
-      }
-
+      if (!file) return;
       const reader = new FileReader();
       reader.onload = (e) => {
         const dataUrl = e.target?.result as string;
         if (dataUrl) {
           this.processUploadedPhoto(dataUrl);
         }
-        document.body.removeChild(input);
       };
       reader.readAsDataURL(file);
     });
 
-    input.click();
+    document.body.appendChild(input);
+    this.domOverlays.push(input);
+  }
+
+  /**
+   * Remove all DOM overlay elements created by this scene.
+   */
+  private cleanupDomOverlays(): void {
+    for (const el of this.domOverlays) {
+      if (el.parentNode) {
+        el.parentNode.removeChild(el);
+      }
+    }
+    this.domOverlays = [];
   }
 
   /**
@@ -382,8 +367,8 @@ export class CustomizeScene extends Phaser.Scene {
   }
 
   /**
-   * Resize and center an image onto a transparent canvas of the given dimensions.
-   * Returns a data URL.
+   * Resize, center, and apply a body-shaped oval mask to remove the background.
+   * Returns a data URL with transparent edges.
    */
   private createSpriteCanvas(img: HTMLImageElement, targetW: number, targetH: number): string {
     const canvas = document.createElement('canvas');
@@ -399,6 +384,24 @@ export class CustomizeScene extends Phaser.Scene {
     const offsetY = (targetH - scaledH) / 2;
 
     ctx.drawImage(img, offsetX, offsetY, scaledW, scaledH);
+
+    // Apply body-shaped oval mask to remove background
+    ctx.globalCompositeOperation = 'destination-in';
+    const cx = targetW / 2;
+    const cy = targetH * 0.45; // slightly above center (head room)
+    const rx = targetW * 0.44;
+    const ry = targetH * 0.48;
+
+    // Draw soft oval with gradient edge for natural fade
+    const gradient = ctx.createRadialGradient(cx, cy, Math.min(rx, ry) * 0.7, cx, cy, Math.max(rx, ry));
+    gradient.addColorStop(0, 'rgba(0,0,0,1)');
+    gradient.addColorStop(0.85, 'rgba(0,0,0,1)');
+    gradient.addColorStop(1, 'rgba(0,0,0,0)');
+
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
 
     return canvas.toDataURL('image/png');
   }

@@ -74,6 +74,9 @@ export class Obstacle extends Phaser.GameObjects.Sprite {
     // Fade in as it approaches, fade out after passing player
     if (this.depth_z < 1.0) {
       this.setAlpha(Math.min(1, this.depth_z * 3));
+    } else if (this.obstacleType === 'bar') {
+      // Bars are overhead — fade out slowly so player sees them pass over
+      this.setAlpha(Math.max(0, 1 - (this.depth_z - 1.0) * 2));
     } else {
       // Quickly fade out after passing
       this.setAlpha(Math.max(0, 1 - (this.depth_z - 1.0) * 5));
@@ -85,8 +88,12 @@ export class Obstacle extends Phaser.GameObjects.Sprite {
     }
 
     // Bars sit at head height (duck under them)
+    // Render bars ABOVE the player (depth 50) when near, so sliding looks correct
     if (this.obstacleType === 'bar') {
       this.y -= 70 * scale;
+      if (this.depth_z > 0.6) {
+        this.setDepth(55 + Math.min(perspT, 1) * 10);
+      }
     }
 
     // Update second sprite for double blocker

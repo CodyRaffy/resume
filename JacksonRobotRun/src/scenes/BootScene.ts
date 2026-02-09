@@ -72,7 +72,15 @@ export class BootScene extends Phaser.Scene {
 
     // Attempt to load real player sprite images
     for (const sprite of PLAYER_SPRITES) {
-      this.load.image(sprite.key, sprite.file);
+      if (sprite.key === 'player') {
+        // Run sprite is a spritesheet with multiple animation frames
+        this.load.spritesheet(sprite.key, sprite.file, {
+          frameWidth: sprite.w,
+          frameHeight: sprite.h,
+        });
+      } else {
+        this.load.image(sprite.key, sprite.file);
+      }
     }
   }
 
@@ -97,6 +105,23 @@ export class BootScene extends Phaser.Scene {
         const spec = PLAYER_SPRITES.find(s => s.key === key)!;
         this.createPlayerTexture(key, spec.w, spec.h, pose === 'slide' ? 0x2471A3 : pose === 'jump' ? 0x2980B9 : 0x3498DB, pose);
       }
+    }
+
+    // Create run animation from spritesheet if the player texture has multiple frames
+    if (this.anims.exists('player-run')) {
+      this.anims.remove('player-run');
+    }
+    const playerTex = this.textures.get('player');
+    if (playerTex && playerTex.frameTotal > 2) {
+      this.anims.create({
+        key: 'player-run',
+        frames: this.anims.generateFrameNumbers('player', {
+          start: 0,
+          end: playerTex.frameTotal - 2,
+        }),
+        frameRate: 10,
+        repeat: -1,
+      });
     }
 
     // Player shadow
@@ -147,6 +172,8 @@ export class BootScene extends Phaser.Scene {
     this.createObstacleTexture('robot-tall', 48, 100, c.obstacleDark, 'tall', theme);
     this.createObstacleTexture('robot-lane', 56, 72, c.obstacle, 'medium', theme);
     this.createObstacleTexture('robot-flying', 56, 48, c.obstacleFlying, 'flying', theme);
+    this.createPlatformTexture();
+    this.createBarTexture();
   }
 
   private createCollectibleTextures(theme: ThemeDefinition): void {
@@ -163,6 +190,69 @@ export class BootScene extends Phaser.Scene {
     partGfx.fillCircle(4, 4, 4);
     partGfx.generateTexture('particle', 8, 8);
     partGfx.destroy();
+  }
+
+  private createPlatformTexture(): void {
+    const g = this.add.graphics();
+    const w = 56;
+    const h = 48;
+
+    // Base plate
+    g.fillStyle(0x888888, 1);
+    g.fillRoundedRect(4, h - 10, w - 8, 10, 3);
+
+    // Spring coils
+    g.lineStyle(3, 0x27AE60, 1);
+    const coilLeft = w * 0.25;
+    const coilRight = w * 0.75;
+    for (let i = 0; i < 4; i++) {
+      const cy = h - 14 - i * 7;
+      g.lineBetween(coilLeft, cy, coilRight, cy - 3);
+      g.lineBetween(coilRight, cy - 3, coilLeft, cy - 6);
+    }
+
+    // Top pad
+    g.fillStyle(0x2ECC71, 1);
+    g.fillRoundedRect(2, 2, w - 4, 10, 4);
+    g.fillStyle(0x27AE60, 1);
+    g.fillRoundedRect(2, 8, w - 4, 4, { tl: 0, tr: 0, bl: 4, br: 4 });
+
+    // Highlight
+    g.lineStyle(1, 0xFFFFFF, 0.5);
+    g.strokeRoundedRect(2, 2, w - 4, 10, 4);
+
+    g.generateTexture('robot-platform', w, h);
+    g.destroy();
+  }
+
+  private createBarTexture(): void {
+    const g = this.add.graphics();
+    const w = 72;
+    const h = 56;
+    // Support posts extending down
+    g.fillStyle(0x999999, 1);
+    g.fillRect(6, 10, 8, h - 10);
+    g.fillRect(w - 14, 10, 8, h - 10);
+    // Post caps
+    g.fillStyle(0xAAAAAA, 1);
+    g.fillRect(4, h - 6, 12, 6);
+    g.fillRect(w - 16, h - 6, 12, 6);
+    // Horizontal beam at top
+    g.fillStyle(0xF39C12, 1);
+    g.fillRoundedRect(0, 0, w, 14, 4);
+    // Beam highlight
+    g.fillStyle(0xF9CF49, 1);
+    g.fillRect(2, 2, w - 4, 5);
+    // Hazard stripes on beam
+    g.lineStyle(2, 0xCC0000, 0.5);
+    for (let sx = 8; sx < w - 8; sx += 14) {
+      g.lineBetween(sx, 3, sx + 8, 11);
+    }
+    // Border
+    g.lineStyle(1, 0xFFFFFF, 0.4);
+    g.strokeRoundedRect(0, 0, w, 14, 4);
+    g.generateTexture('robot-bar', w, h);
+    g.destroy();
   }
 
   // --- Player placeholder (back-facing) ---

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT } from '../config/GameConfig';
 import { ScoreManager } from '../managers/ScoreManager';
 import { ThemeManager } from '../managers/ThemeManager';
+import { AudioManager } from '../managers/AudioManager';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -53,7 +54,10 @@ export class MenuScene extends Phaser.Scene {
     this.createButton(
       GAME_WIDTH / 2, GAME_HEIGHT * 0.40,
       'PLAY', 0x27AE60,
-      () => this.scene.start('GameScene'),
+      () => {
+        AudioManager.getInstance().unlock();
+        this.scene.start('GameScene');
+      },
       200, 60, '28px'
     );
 

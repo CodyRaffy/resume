@@ -1,5 +1,6 @@
 import { LEVELS, LevelDefinition } from '../config/LevelConfig';
 import { ThemeManager } from './ThemeManager';
+import { AudioManager } from './AudioManager';
 
 export class LevelManager {
   private currentLevelIndex: number = 0;
@@ -52,6 +53,7 @@ export class LevelManager {
   }
 
   private onLevelUp(level: LevelDefinition): void {
+    AudioManager.getInstance().playLevelUp();
     const gameScene = this.scene as any;
     if (gameScene.showLevelAnnouncement) {
       // Use theme-specific level name if available
