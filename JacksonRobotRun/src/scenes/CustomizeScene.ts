@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, PLAYER_WIDTH, PLAYER_HEIGHT } from '../config/GameConfig';
 import { ThemeManager } from '../managers/ThemeManager';
 import { getAllThemes, ThemeDefinition } from '../config/ThemeConfig';
+import { removeBackground } from '@imgly/background-removal';
 
 /**
  * Customization screen where users can:
@@ -323,52 +324,76 @@ export class CustomizeScene extends Phaser.Scene {
 
   /**
    * Process an uploaded photo:
+   * - Remove background using ML model
    * - Resize to fit sprite dimensions
-   * - Center on transparent canvas
    * - Save as custom sprite for all 3 poses
    */
-  private processUploadedPhoto(dataUrl: string): void {
+  private async processUploadedPhoto(dataUrl: string): Promise<void> {
+    // Show loading overlay
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.7);
+    overlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    overlay.setDepth(199);
+
+    const statusText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Removing background...\n(first time downloads AI model)', {
+      fontFamily: 'Arial Black',
+      fontSize: '16px',
+      color: '#FFFFFF',
+      stroke: '#000000',
+      strokeThickness: 4,
+      align: 'center',
+    }).setOrigin(0.5, 0.5).setDepth(200);
+
+    let processedDataUrl = dataUrl;
+    try {
+      // Convert data URL to blob
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+
+      // Run ML background removal (downloads ~5MB model on first use)
+      const resultBlob = await removeBackground(blob, {
+        output: { format: 'image/png' },
+      });
+
+      // Convert result back to data URL
+      processedDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(resultBlob);
+      });
+    } catch (err) {
+      console.error('Background removal failed, using original photo:', err);
+      // Fall back to original image if ML model fails
+    }
+
+    // Create sprites from the (hopefully background-removed) image
     const img = new Image();
     img.onload = () => {
-      // Process for run pose (portrait 64x96 -> we use 128x192 for better quality)
       const runCanvas = this.createSpriteCanvas(img, PLAYER_WIDTH * 2, PLAYER_HEIGHT * 2);
       ThemeManager.setCustomSprite('run', runCanvas);
 
-      // Process for jump pose (same size, slightly shifted up)
       const jumpCanvas = this.createSpriteCanvas(img, PLAYER_WIDTH * 2, PLAYER_HEIGHT * 2);
       ThemeManager.setCustomSprite('jump', jumpCanvas);
 
-      // Process for slide pose (wider, shorter)
       const slideCanvas = this.createSpriteCanvas(img, 160, 96);
       ThemeManager.setCustomSprite('slide', slideCanvas);
 
       this.updateCustomLabel();
 
-      // Show confirmation and restart to reload textures
-      const confirmText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Photo saved!\nReloading...', {
-        fontFamily: 'Arial Black',
-        fontSize: '20px',
-        color: '#27AE60',
-        stroke: '#000000',
-        strokeThickness: 4,
-        align: 'center',
-      }).setOrigin(0.5, 0.5).setDepth(200);
-
-      const overlay = this.add.graphics();
-      overlay.fillStyle(0x000000, 0.6);
-      overlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-      overlay.setDepth(199);
+      statusText.setText('Photo saved!\nReloading...');
+      statusText.setColor('#27AE60');
 
       this.time.delayedCall(1000, () => {
         this.scene.start('BootScene');
       });
     };
-    img.src = dataUrl;
+    img.src = processedDataUrl;
   }
 
   /**
-   * Resize, center, and apply a body-shaped oval mask to remove the background.
-   * Returns a data URL with transparent edges.
+   * Resize and center an image onto a transparent canvas of the given dimensions.
+   * Background removal is handled before this step.
    */
   private createSpriteCanvas(img: HTMLImageElement, targetW: number, targetH: number): string {
     const canvas = document.createElement('canvas');
@@ -384,24 +409,6 @@ export class CustomizeScene extends Phaser.Scene {
     const offsetY = (targetH - scaledH) / 2;
 
     ctx.drawImage(img, offsetX, offsetY, scaledW, scaledH);
-
-    // Apply body-shaped oval mask to remove background
-    ctx.globalCompositeOperation = 'destination-in';
-    const cx = targetW / 2;
-    const cy = targetH * 0.45; // slightly above center (head room)
-    const rx = targetW * 0.44;
-    const ry = targetH * 0.48;
-
-    // Draw soft oval with gradient edge for natural fade
-    const gradient = ctx.createRadialGradient(cx, cy, Math.min(rx, ry) * 0.7, cx, cy, Math.max(rx, ry));
-    gradient.addColorStop(0, 'rgba(0,0,0,1)');
-    gradient.addColorStop(0.85, 'rgba(0,0,0,1)');
-    gradient.addColorStop(1, 'rgba(0,0,0,0)');
-
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-    ctx.fill();
 
     return canvas.toDataURL('image/png');
   }
