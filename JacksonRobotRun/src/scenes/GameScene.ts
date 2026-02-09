@@ -3,6 +3,7 @@ import {
   GAME_WIDTH, GAME_HEIGHT, LANE_POSITIONS, DEFAULT_LANE,
   HORIZON_Y, GROUND_Y, PLAYER_Y, STARTING_LIVES,
   DISTANCE_POINTS_PER_TICK,
+  PLATFORM_JUMP_POINTS, BAR_SLIDE_POINTS,
 } from '../config/GameConfig';
 import { ThemeManager } from '../managers/ThemeManager';
 import { ThemeDefinition } from '../config/ThemeConfig';
@@ -13,6 +14,7 @@ import { LevelManager } from '../managers/LevelManager';
 import { InputManager } from '../managers/InputManager';
 import { Obstacle } from '../objects/Obstacle';
 import { Collectible } from '../objects/Collectible';
+import { AudioManager } from '../managers/AudioManager';
 
 // Depth zone where collisions are checked (obstacle near the player).
 // Widened to prevent skipping at high speed + low framerate.
@@ -116,6 +118,9 @@ export class GameScene extends Phaser.Scene {
     pauseBtn.setInteractive({ useHandCursor: true });
     pauseBtn.setDepth(100);
     pauseBtn.on('pointerdown', () => this.togglePause());
+
+    // Start background music
+    AudioManager.getInstance().playMusic();
   }
 
   update(_time: number, delta: number): void {
@@ -158,8 +163,27 @@ export class GameScene extends Phaser.Scene {
         continue; // obstacle destroyed in onObstacleHit
       }
 
-      // Remove if past the camera
-      if (obstacle.depth_z > 1.15) {
+      // Award bonus points for correct bar/platform interactions (once per obstacle)
+      if (!obstacle.duckBonusAwarded
+        && obstacle.depth_z >= COLLISION_Z_MIN
+        && obstacle.depth_z <= COLLISION_Z_MAX
+      ) {
+        if (obstacle.obstacleType === 'bar' && this.player.playerState === 'sliding') {
+          obstacle.duckBonusAwarded = true;
+          const earned = this.scoreManager.addCollectible(BAR_SLIDE_POINTS);
+          this.showBonusText(obstacle.x, obstacle.y, `+${earned}`);
+          AudioManager.getInstance().playBarSlide();
+        } else if (obstacle.obstacleType === 'platform' && this.player.playerState === 'jumping') {
+          obstacle.duckBonusAwarded = true;
+          const earned = this.scoreManager.addCollectible(PLATFORM_JUMP_POINTS);
+          this.showBonusText(obstacle.x, obstacle.y, `+${earned}`);
+          AudioManager.getInstance().playPlatformLand();
+        }
+      }
+
+      // Remove if past the camera (bars linger longer since they're overhead)
+      const destroyThreshold = obstacle.obstacleType === 'bar' ? 1.55 : 1.15;
+      if (obstacle.depth_z > destroyThreshold) {
         obstaclesToDestroy.push(obstacle);
       }
     }
@@ -382,6 +406,16 @@ export class GameScene extends Phaser.Scene {
       return false;
     }
 
+    // Bars are overhead — slide under them safely
+    if (obstacle.obstacleType === 'bar' && this.player.playerState === 'sliding') {
+      return false;
+    }
+
+    // Platforms — jump on them safely
+    if (obstacle.obstacleType === 'platform' && this.player.playerState === 'jumping') {
+      return false;
+    }
+
     return Phaser.Geom.Rectangle.Overlaps(playerBounds, obstacleBounds);
   }
 
@@ -397,6 +431,7 @@ export class GameScene extends Phaser.Scene {
     this.lives--;
     this.scoreManager.resetCombo();
     obstacle.destroy();
+    AudioManager.getInstance().playHit();
 
     // Screen shake
     this.cameras.main.shake(300, 0.015);
@@ -431,6 +466,7 @@ export class GameScene extends Phaser.Scene {
     const basePoints = collectible.getPoints();
     // addCollectible returns the actual earned value (with multiplier applied)
     const earned = this.scoreManager.addCollectible(basePoints);
+    AudioManager.getInstance().playCollect();
 
     // Floating score text
     const floatText = this.add.text(collectible.x, collectible.y, `+${earned}`, {
@@ -469,6 +505,29 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(500, () => particles.destroy());
 
     collectible.destroy();
+  }
+
+  // --- Bonus Text ---
+
+  private showBonusText(x: number, y: number, text: string): void {
+    const floatText = this.add.text(x, y, text, {
+      fontFamily: 'Arial Black',
+      fontSize: '20px',
+      color: '#00FF88',
+      stroke: '#000000',
+      strokeThickness: 4,
+    }).setOrigin(0.5, 0.5).setDepth(90);
+
+    this.tweens.add({
+      targets: floatText,
+      y: floatText.y - 70,
+      alpha: 0,
+      scaleX: 1.3,
+      scaleY: 1.3,
+      duration: 900,
+      ease: 'Sine.easeOut',
+      onComplete: () => floatText.destroy(),
+    });
   }
 
   // --- Level Announcement ---
@@ -511,6 +570,8 @@ export class GameScene extends Phaser.Scene {
   private gameOver(): void {
     this.isGameOver = true;
     this.scoreManager.saveHighScore();
+    AudioManager.getInstance().stopMusic();
+    AudioManager.getInstance().playGameOver();
 
     // Brief delay then transition
     this.time.delayedCall(600, () => {
