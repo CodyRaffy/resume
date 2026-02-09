@@ -30,8 +30,10 @@ const C = {
   hoodieLight: [255, 183, 77, 255],
   pants:       [91, 107, 63, 255],
   pantsDark:   [74, 86, 50, 255],
-  shoes:       [61, 61, 61, 255],
-  shoesSole:   [34, 34, 34, 255],
+  shoes:       [255, 130, 20, 255],    // Orange crocs
+  shoesDark:   [220, 105, 10, 255],    // Croc shadow/detail
+  shoesSole:   [200, 90, 5, 255],      // Darker orange sole
+  shoesHole:   [240, 160, 70, 120],    // Translucent holes on crocs
   watch:       [79, 195, 247, 255],
   white:       [255, 255, 255, 180],
   outline:     [40, 30, 20, 60],
@@ -263,13 +265,25 @@ function drawRunFrame(buf, ox, W, H, frameIndex) {
   buf.fillRoundRect(cx + 1, pantsTop, 10, rightLegH, 3, C.pants);
   buf.fillRect(cx + 2, pantsTop + rightLegH - 4, 8, 3, C.pantsDark);
 
-  // ── Left shoe ──
-  buf.fillRoundRect(cx - 12, pantsTop + leftLegH - 2, 12, 6, 2, C.shoes);
-  buf.fillRect(cx - 12, pantsTop + leftLegH + 2, 12, 2, C.shoesSole);
+  // ── Left croc ──
+  buf.fillRoundRect(cx - 13, pantsTop + leftLegH - 2, 14, 7, 3, C.shoes);
+  buf.fillRect(cx - 13, pantsTop + leftLegH + 3, 14, 2, C.shoesSole);
+  // Croc holes
+  buf.setPixel(cx - 10, pantsTop + leftLegH, C.shoesHole);
+  buf.setPixel(cx - 7, pantsTop + leftLegH, C.shoesHole);
+  buf.setPixel(cx - 4, pantsTop + leftLegH + 1, C.shoesHole);
+  // Heel strap
+  buf.fillRect(cx - 3, pantsTop + leftLegH - 1, 2, 5, C.shoesDark);
 
-  // ── Right shoe ──
-  buf.fillRoundRect(cx + 1, pantsTop + rightLegH - 2, 12, 6, 2, C.shoes);
-  buf.fillRect(cx + 1, pantsTop + rightLegH + 2, 12, 2, C.shoesSole);
+  // ── Right croc ──
+  buf.fillRoundRect(cx, pantsTop + rightLegH - 2, 14, 7, 3, C.shoes);
+  buf.fillRect(cx, pantsTop + rightLegH + 3, 14, 2, C.shoesSole);
+  // Croc holes
+  buf.setPixel(cx + 3, pantsTop + rightLegH, C.shoesHole);
+  buf.setPixel(cx + 6, pantsTop + rightLegH, C.shoesHole);
+  buf.setPixel(cx + 9, pantsTop + rightLegH + 1, C.shoesHole);
+  // Heel strap
+  buf.fillRect(cx + 12, pantsTop + rightLegH - 1, 2, 5, C.shoesDark);
 
   // ── Motion lines (subtle) ──
   for (let i = 0; i < 3; i++) {
@@ -351,11 +365,19 @@ function drawJumpSprite() {
   buf.fillRect(cx - 10, pantsTop + 12, 8, 3, C.pantsDark);
   buf.fillRect(cx + 3, pantsTop + 12, 8, 3, C.pantsDark);
 
-  // ── Shoes ──
-  buf.fillRoundRect(cx - 13, pantsTop + 14, 11, 5, 2, C.shoes);
-  buf.fillRoundRect(cx + 2, pantsTop + 14, 11, 5, 2, C.shoes);
-  buf.fillRect(cx - 13, pantsTop + 17, 11, 2, C.shoesSole);
-  buf.fillRect(cx + 2, pantsTop + 17, 11, 2, C.shoesSole);
+  // ── Crocs ──
+  buf.fillRoundRect(cx - 14, pantsTop + 13, 13, 6, 3, C.shoes);
+  buf.fillRoundRect(cx + 1, pantsTop + 13, 13, 6, 3, C.shoes);
+  buf.fillRect(cx - 14, pantsTop + 17, 13, 2, C.shoesSole);
+  buf.fillRect(cx + 1, pantsTop + 17, 13, 2, C.shoesSole);
+  // Croc holes
+  buf.setPixel(cx - 11, pantsTop + 15, C.shoesHole);
+  buf.setPixel(cx - 8, pantsTop + 15, C.shoesHole);
+  buf.setPixel(cx + 4, pantsTop + 15, C.shoesHole);
+  buf.setPixel(cx + 7, pantsTop + 15, C.shoesHole);
+  // Heel straps
+  buf.fillRect(cx - 3, pantsTop + 14, 2, 4, C.shoesDark);
+  buf.fillRect(cx + 12, pantsTop + 14, 2, 4, C.shoesDark);
 
   // Jump boost lines
   const boostColor = [0, 191, 255, 140];
@@ -381,16 +403,21 @@ function drawSlideSprite() {
   // ── Extended leg (right, stretched out low along ground) ──
   buf.fillRoundRect(42, groundY - 10, 24, 9, 3, C.pants);
   buf.fillRect(43, groundY - 6, 22, 3, C.pantsDark);
-  // Shoe on extended leg
-  buf.fillRoundRect(64, groundY - 11, 12, 8, 2, C.shoes);
-  buf.fillRect(64, groundY - 5, 12, 2, C.shoesSole);
+  // Croc on extended leg
+  buf.fillRoundRect(63, groundY - 11, 14, 8, 3, C.shoes);
+  buf.fillRect(63, groundY - 5, 14, 2, C.shoesSole);
+  buf.setPixel(66, groundY - 9, C.shoesHole);
+  buf.setPixel(69, groundY - 9, C.shoesHole);
+  buf.setPixel(72, groundY - 8, C.shoesHole);
 
   // ── Tucked leg (left, bent underneath) ──
   buf.fillRoundRect(30, groundY - 14, 16, 9, 3, C.pants);
   buf.fillRect(31, groundY - 10, 14, 3, C.pantsDark);
-  // Shoe on tucked leg
-  buf.fillRoundRect(26, groundY - 11, 10, 7, 2, C.shoes);
-  buf.fillRect(26, groundY - 6, 10, 2, C.shoesSole);
+  // Croc on tucked leg
+  buf.fillRoundRect(25, groundY - 11, 12, 7, 3, C.shoes);
+  buf.fillRect(25, groundY - 6, 12, 2, C.shoesSole);
+  buf.setPixel(28, groundY - 9, C.shoesHole);
+  buf.setPixel(31, groundY - 9, C.shoesHole);
 
   // ── Body / torso (leaning sideways, tilted) ──
   // Torso angled — higher on left (head side), lower on right (legs side)
