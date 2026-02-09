@@ -12,10 +12,12 @@ import { ThemeDefinition } from '../config/ThemeConfig';
  * Users can also upload custom photos which override these files.
  * If any image is missing, a procedural placeholder is generated instead.
  */
+// Cache-bust sprite URLs so browsers fetch fresh copies after deploys
+const SPRITE_VERSION = '4';
 const PLAYER_SPRITES: { key: string; file: string; w: number; h: number }[] = [
-  { key: 'player', file: 'assets/sprites/jackson/run.png', w: PLAYER_WIDTH, h: PLAYER_HEIGHT },
-  { key: 'player-jump', file: 'assets/sprites/jackson/jump.png', w: PLAYER_WIDTH, h: PLAYER_HEIGHT },
-  { key: 'player-slide', file: 'assets/sprites/jackson/slide.png', w: 80, h: 48 },
+  { key: 'player', file: `assets/sprites/jackson/run.png?v=${SPRITE_VERSION}`, w: PLAYER_WIDTH, h: PLAYER_HEIGHT },
+  { key: 'player-jump', file: `assets/sprites/jackson/jump.png?v=${SPRITE_VERSION}`, w: PLAYER_WIDTH, h: PLAYER_HEIGHT },
+  { key: 'player-slide', file: `assets/sprites/jackson/slide.png?v=${SPRITE_VERSION}`, w: 80, h: 48 },
 ];
 
 export class BootScene extends Phaser.Scene {
