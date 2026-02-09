@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jackson-robot-run-v3';
+const CACHE_NAME = 'jackson-robot-run-v4';
 
 const PRECACHE_ASSETS = [
   './',
