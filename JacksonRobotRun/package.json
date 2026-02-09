@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "npm run build && node -e \"const fs=require('fs');const path=require('path');function cpR(s,d){fs.mkdirSync(d,{recursive:true});for(const e of fs.readdirSync(s,{withFileTypes:true})){const sp=path.join(s,e.name),dp=path.join(d,e.name);e.isDirectory()?cpR(sp,dp):fs.copyFileSync(sp,dp)}}cpR('dist',path.resolve(__dirname,'..','game'));console.log('Deployed dist/ -> ../game/ — commit and push master to publish.')\""
   },
   "keywords": [
     "game",

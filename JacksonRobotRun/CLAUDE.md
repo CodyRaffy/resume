@@ -21,9 +21,16 @@ npm install          # Install dependencies
 npm run dev          # Dev server at http://localhost:3000
 npm run build        # Production build to dist/
 npm run preview      # Preview production build
+npm run deploy       # Build + copy dist/ to ../game/ for GitHub Pages
 ```
 
 Build output: `dist/index.html` + `dist/game.min.js`
+
+## Deployment
+
+The game is hosted on GitHub Pages at codyraffensperger.com/game/. The built files live in the `game/` directory at the root of the parent `resume` repo.
+
+To deploy: run `npm run deploy`, then commit `../game/` and push `master`.
 
 ---
 
