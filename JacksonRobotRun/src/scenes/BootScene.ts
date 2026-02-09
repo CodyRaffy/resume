@@ -70,9 +70,29 @@ export class BootScene extends Phaser.Scene {
       this.failedImages.add(file.key);
     });
 
-    // Attempt to load real player sprite images
+    // Remove cached player textures so the loader doesn't skip them on restart
     for (const sprite of PLAYER_SPRITES) {
-      if (sprite.key === 'player') {
+      if (this.textures.exists(sprite.key)) {
+        this.textures.remove(sprite.key);
+      }
+    }
+
+    // Load player sprite images — use custom photos if available, otherwise originals
+    const customSprites = ThemeManager.getCustomSprites();
+    const poseMap: Record<string, keyof CustomSpriteData> = {
+      'player': 'run',
+      'player-jump': 'jump',
+      'player-slide': 'slide',
+    };
+
+    for (const sprite of PLAYER_SPRITES) {
+      const pose = poseMap[sprite.key];
+      const customDataUrl = pose ? customSprites[pose] : undefined;
+
+      if (customDataUrl) {
+        // Custom photo — load from data URL through Phaser's loader (handles async properly)
+        this.load.image(sprite.key, customDataUrl);
+      } else if (sprite.key === 'player') {
         // Run sprite is a spritesheet with multiple animation frames
         this.load.spritesheet(sprite.key, sprite.file, {
           frameWidth: sprite.w,
@@ -88,11 +108,8 @@ export class BootScene extends Phaser.Scene {
     const theme = ThemeManager.getTheme();
     const customSprites = ThemeManager.getCustomSprites();
 
-    // Load custom user sprites if available (override loaded files)
-    this.loadCustomSprites(customSprites);
-
     // Generate placeholder textures for any player sprites that failed to load
-    // and don't have custom overrides
+    // and don't have custom overrides (custom sprites are loaded in preload)
     const playerKeys = new Map([
       ['player', 'run'],
       ['player-jump', 'jump'],
@@ -137,31 +154,6 @@ export class BootScene extends Phaser.Scene {
     this.createParticleTexture();
 
     this.scene.start('MenuScene');
-  }
-
-  /**
-   * If the user has uploaded custom photos, create textures from their data URLs.
-   */
-  private loadCustomSprites(customSprites: CustomSpriteData): void {
-    const mapping: [keyof CustomSpriteData, string][] = [
-      ['run', 'player'],
-      ['jump', 'player-jump'],
-      ['slide', 'player-slide'],
-    ];
-
-    for (const [pose, key] of mapping) {
-      const dataUrl = customSprites[pose];
-      if (dataUrl) {
-        // Remove existing texture if present
-        if (this.textures.exists(key)) {
-          this.textures.remove(key);
-        }
-        // Create from data URL
-        const img = new Image();
-        img.src = dataUrl;
-        this.textures.addImage(key, img);
-      }
-    }
   }
 
   // --- Themed obstacle textures ---
